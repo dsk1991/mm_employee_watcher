@@ -135,6 +135,14 @@ class MetadataTest(unittest.TestCase):
 		self.assertIn("descriptionControl.$input.val()", script)
 		self.assertIn("description: description", script)
 
+	def test_dashboard_public_rpc_path_exists(self):
+		dashboard = (ROOT / "mm_employee_watcher" / "dashboard.py").read_text(encoding="utf-8")
+		self.assertIn("from .mm_employee_watcher.dashboard import get_dashboard_data", dashboard)
+		page = (ROOT / "mm_employee_watcher" / "www" / "mm_dashboard.html").read_text(
+			encoding="utf-8"
+		)
+		self.assertIn("mm_employee_watcher.dashboard.get_dashboard_data", page)
+
 
 if __name__ == "__main__":
 	unittest.main()
