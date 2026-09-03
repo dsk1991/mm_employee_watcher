@@ -11,9 +11,11 @@ required_apps = ["frappe", "erpnext"]
 
 # Includes in <head>
 # ------------------
-# Loads on every Desk page: shows the "Work Now" popup when the logged-in
-# employee has no active session, and the Done/Extend/Blocked popup when
-# their session's target time expires. See public/js/mm_watcher.js.
+# Loads on every Desk page: a small WhatsApp-style floating work widget
+# (bottom-right) with a live timer, a forced "Work Now" popup when the
+# logged-in employee has no active session, an "End Work — what did you
+# do?" prompt, and the Done/Extend/Blocked popup when their session's
+# target time expires. See public/js/mm_watcher.js.
 
 app_include_js = "/assets/mm_employee_watcher/js/mm_watcher.js"
 
@@ -30,7 +32,7 @@ after_migrate = "mm_employee_watcher.install.after_migrate"
 
 # Doc events
 # ----------
-# These events add document output to the employee's current section. They
+# These events add document output to the employee's current work session. They
 # are deliberately non-blocking: watcher failures never stop an accounting
 # document from saving or submitting.
 
@@ -53,8 +55,6 @@ scheduler_events = {
 		# every minute: notify once for sessions whose target_end_time has passed
 		"* * * * *": [
 			"mm_employee_watcher.tasks.check_expired_sessions",
-			"mm_employee_watcher.tasks.check_expired_sections",
-			"mm_employee_watcher.tasks.notify_due_section_schedules",
 		],
 		# every 5 minutes: mark employees with a stale heartbeat as OFFLINE
 		"*/5 * * * *": [

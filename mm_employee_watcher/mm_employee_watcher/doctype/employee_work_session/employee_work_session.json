@@ -6,8 +6,6 @@
  "field_order": [
   "employee",
   "employee_name",
-  "work_section",
-  "section_session",
   "work_activity",
   "is_primary",
   "status",
@@ -45,22 +43,6 @@
    "fieldname": "employee_name",
    "fieldtype": "Data",
    "label": "Employee Name",
-   "read_only": 1
-  },
-  {
-   "fieldname": "work_section",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Work Section",
-   "options": "Work Section Master",
-   "search_index": 1
-  },
-  {
-   "fieldname": "section_session",
-   "fieldtype": "Link",
-   "label": "Section Session",
-   "options": "Employee Section Session",
    "read_only": 1
   },
   {

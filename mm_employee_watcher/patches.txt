@@ -1,2 +1,5 @@
 # patches to be applied on `bench migrate`
 # format: module_name.patch_file
+
+[post_model_sync]
+mm_employee_watcher.patches.v0_3_0_remove_sections

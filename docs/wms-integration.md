@@ -18,40 +18,10 @@ from the UI. Frappe resolves the employee from the authenticated API user's
    remaining. Do not create a separate WMS tracking setting; the existing
    `User.mm_tracking_enabled` value applies everywhere.
 
-## Section lifecycle
-
-Every tracked activity belongs to the employee's one active section. Before
-starting a Pick List or Putaway, WMS must start (or reuse) the physical section:
-
-```text
-POST /api/method/mm_employee_watcher.api.start_section
-work_section=Sales Warehouse
-target_minutes=120
-source_app=WMS
-qr_code=SALES-WH-01
-```
-
-If the section is configured with `Requires QR Scan`, the matching QR value is
-mandatory. Repeating the same start is idempotent; starting a different section
-while one is active returns a conflict. After the employee taps End Section:
-
-```text
-POST /api/method/mm_employee_watcher.api.end_section
-section_session=ESS-00001
-reason=Scheduled warehouse block completed
-completed_qty=120
-```
-
-The server closes any current activity in that section, clears the current
-section, and returns the next scheduled section. The client must then show
-"Please start new work". A plain heartbeat must never change sections; only an
-explicit section start/end can do that, so an old Desk browser tab cannot steal
-the employee back from WMS.
-
 ## Document-backed operations
 
 When the employee explicitly starts a Pick List, Putaway, or Delivery Count,
-call this after `start_section`:
+call:
 
 ```text
 POST /api/method/mm_employee_watcher.api.start_reference_work
@@ -101,6 +71,13 @@ builder so it appears consistently. Add a main-thread `Handler` heartbeat in
 `Api.request(...)` helper. Keep watcher calls best-effort: a tracking-network
 error must be logged and shown in the bar, but must not discard a valid Pick
 List/Putaway save.
+
+## No sections
+
+Earlier releases grouped work into a "section" (`start_section` / `end_section`)
+that had to be opened before any activity. That layer is gone: WMS calls
+`start_reference_work` directly and the server tracks one flat work session per
+employee.
 
 ## Security rules
 

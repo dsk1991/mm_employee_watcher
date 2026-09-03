@@ -33,18 +33,6 @@ ALLOWED_TRANSITIONS = {
 	SESSION_CANCELLED: frozenset(),
 }
 
-SECTION_ACTIVE = "Active"
-SECTION_COMPLETED = "Completed"
-SECTION_CANCELLED = "Cancelled"
-
-OPEN_SECTION_STATUSES = frozenset({SECTION_ACTIVE})
-
-SECTION_ALLOWED_TRANSITIONS = {
-	SECTION_ACTIVE: frozenset({SECTION_COMPLETED, SECTION_CANCELLED}),
-	SECTION_COMPLETED: frozenset(),
-	SECTION_CANCELLED: frozenset(),
-}
-
 
 def ensure_transition(current_status: str, next_status: str) -> None:
 	"""Raise ValueError when a persisted session attempts an invalid transition."""
@@ -52,11 +40,3 @@ def ensure_transition(current_status: str, next_status: str) -> None:
 		return
 	if next_status not in ALLOWED_TRANSITIONS.get(current_status, frozenset()):
 		raise ValueError(f"Work session cannot change from {current_status} to {next_status}")
-
-
-def ensure_section_transition(current_status: str, next_status: str) -> None:
-	"""Raise ValueError when a section session attempts an invalid transition."""
-	if current_status == next_status:
-		return
-	if next_status not in SECTION_ALLOWED_TRANSITIONS.get(current_status, frozenset()):
-		raise ValueError(f"Section session cannot change from {current_status} to {next_status}")

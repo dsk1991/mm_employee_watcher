@@ -15,18 +15,14 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
 
 ## What's in this cut
 
-- DocTypes: `Work Section Master`, `Employee Section Session`,
-  `Employee Section Schedule`, `Work Activity Master`, `Employee Work Session`,
+- DocTypes: `Work Activity Master`, `Employee Work Session`,
   `Employee Current Status`, `Employee Work Log`, `Employee Work Queue`
-- **One active section per employee.** A section (Sales Office, Sales
-  Warehouse, Break) groups all of that employee's sequential work activities.
-- Staff schedules can pre-assign section, time window, suggested activity,
-  and instructions. Due schedules push a Start Section prompt; missed entries
-  are marked Skipped for supervisor review.
-- Server-side rule: one Primary Active Work per employee at a time
-- Whitelisted API: `start_section`, `end_section`, `extend_section`,
-  `get_my_schedule`, `start_work`, `complete_work`, `extend_work`,
-  `pause_work`, `resume_work`, `mark_blocked`, `get_my_status`,
+- **One flat work session per employee.** There is no "section" to start
+  first — the employee just declares what work they are doing.
+- Server-side rule: one Primary Active Work per employee at a time,
+  enforced in the DocType, not just the UI.
+- Whitelisted API: `start_work`, `end_work`, `complete_work`, `extend_work`,
+  `pause_work`, `resume_work`, `mark_blocked`, `mark_break`, `get_my_status`,
   `get_next_work`, `heartbeat`, plus WMS-safe `start_reference_work`,
   `update_progress`, and `complete_reference_work`
 - Employee-facing mutations are ownership checked. An employee cannot pass
@@ -44,29 +40,33 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
   (`mm_tracking_enabled`) added to the standard User form on install.
   Unchecked users are invisible to the watcher: no popups, no scheduler
   actions, no state changes.
-- **Always-visible Desk work bar** (`public/js/mm_watcher.js`): current
-  section, section countdown, current activity, work countdown, reference,
-  and Start/End controls. When no section is active it stays red and asks the
-  employee to start new work.
-- **Desk popup** (`public/js/mm_watcher.js`, loaded on every Desk page):
-  - No active section? → scheduled/default **Start Section** dialog.
-  - No active work? → **"Work Now"** dialog (Work, required Description, Start
-    Time, Duration, Target Qty) as soon as Desk opens.
-  - Active session's target time expired? → **Done / Extend / Blocked**
-    dialog, pushed in real time via `frappe.publish_realtime`.
-- **Auto-chain on Done.** `complete_work` immediately looks at
+- **Floating work widget** (`public/js/mm_watcher.js`, loaded on every Desk
+  page): a small WhatsApp-style button bottom-right with a live countdown
+  badge for the current work. Click it for a panel — current activity,
+  description, timer, and **End Work / +15m / +30m / Blocked** — or
+  **Start Work** when idle.
+- **Forced start prompt.** Opening ERPNext Desk with no active work shows a
+  **"What work are you starting now?"** popup (Work, required Description,
+  Duration, Target Qty). It will not close until work is started; the
+  employee can instead choose **"I'm on a break"**.
+- **End-of-work prompt.** Ending work asks **"What did you do / complete?"**
+  (required free text) via `end_work`, then immediately prompts for the next
+  work.
+- **Expiry popup.** When a session passes its target time the server pushes
+  a realtime alert and the widget opens a **Done / Extend / Blocked** dialog.
+- **Auto-chain on Done.** `end_work` / `complete_work` immediately looks at
   `Employee Work Queue` and auto-starts the next pending item for that
-  employee — no idle gap, no manual Start tap. Only when the queue is
-  empty does the employee go `IDLE` and get the "Work Now" popup.
+  employee — no idle gap. Only when the queue is empty does the employee go
+  `IDLE` and get the forced "Work Now" popup.
 - Sales Invoice and Payment Entry create/submit events are recorded
-  automatically. Opening Sales Invoice, Payment Entry, or a report also
-  selects the matching activity, but never silently switches an employee out
-  of a physical/WMS section.
+  automatically into the employee's current work session. Opening Sales
+  Invoice, Payment Entry, or a report also aggregates activity into (or
+  opens) a matching work session.
 - **Wall-display dashboard** at `/mm_dashboard` — a standalone page (not
   inside Desk), openable by URL from any browser/TV, auto-refreshing
   every 30 seconds. Live cards per employee (status, current work,
-  qty done/target, time left or overdue, blocked reason) plus a status
-  count strip at the top. See "Wall-display dashboard" below.
+  description, qty done/target, time left or overdue, blocked reason) plus a
+  status count strip at the top. See "Wall-display dashboard" below.
 - **WMS integration contract** in
   [`docs/wms-integration.md`](docs/wms-integration.md): foreground heartbeat,
   one compact work bar, idempotent document start, progress sync, and final
@@ -85,8 +85,10 @@ bench --site your-site install-app mm_employee_watcher
 bench build --app mm_employee_watcher   # picks up public/js/mm_watcher.js
 ```
 
-For an existing installation, update and migrate normally. The idempotent
-`after_migrate` hook creates any missing tracking field and app roles:
+For an existing installation, update and migrate normally. The
+`v0_3_0_remove_sections` patch drops the old section DocTypes and columns,
+and the idempotent `after_migrate` hook creates any missing tracking field
+and app roles:
 
 ```bash
 bench --site your-site migrate
@@ -111,7 +113,7 @@ Desk page — an unauthenticated visitor is bounced to `/login`. For a TV
 that should just stay on the dashboard forever, the simplest setup is:
 
 1. Create a dedicated user, e.g. `dashboard@yourcompany.com`, with a role
-   **Employee Watcher Viewer** role. Use **Employee Watcher Manager** for
+   **Employee Watcher Viewer**. Use **Employee Watcher Manager** for
    supervisors who also maintain activities and work queues. Ordinary
    Employee users cannot open the all-employee dashboard.
 2. Log in as that user once on the TV's browser and leave it signed in —
@@ -133,11 +135,13 @@ mm_employee_watcher/
   mm_employee_watcher/            # the installable Frappe app (Python package)
     hooks.py                      # scheduler_events, app_include_js, after_install
     install.py                    # creates the User "Enable Work Tracking" field
-    api.py                        # whitelisted methods (start_work, etc.)
+    api.py                        # whitelisted methods (start_work, end_work, ...)
     dashboard.py                  # get_dashboard_data — feeds /mm_dashboard
     tasks.py                      # scheduled jobs
     utils.py                      # shared helpers (status transitions, realtime)
-    public/js/mm_watcher.js       # Persistent section/work bar and dialogs
+    state_machine.py              # pure work-session transition rules
+    patches/                      # migration patches (v0_3_0_remove_sections)
+    public/js/mm_watcher.js       # floating work widget and dialogs
     www/mm_dashboard.html         # the wall-display dashboard page
     www/mm_dashboard.py           # page context (redirects Guests to /login)
     mm_employee_watcher/doctype/  # the 5 DocTypes

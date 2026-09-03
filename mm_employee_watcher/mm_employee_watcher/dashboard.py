@@ -28,8 +28,6 @@ def get_dashboard_data():
 			"employee_name",
 			"status",
 			"status_since",
-			"current_section",
-			"current_section_session",
 			"current_session",
 		],
 	)
@@ -43,26 +41,10 @@ def get_dashboard_data():
 			"employee": row.employee,
 			"employee_name": row.employee_name or row.employee,
 			"status": row.status,
-			"work_section": row.current_section,
 			"since_minutes": (
 				max(0, int(time_diff_in_seconds(now, row.status_since) // 60)) if row.status_since else None
 			),
 		}
-
-		if row.current_section_session:
-			section = frappe.db.get_value(
-				"Employee Section Session",
-				row.current_section_session,
-				["target_end_time", "start_time", "source_app", "extended_minutes"],
-				as_dict=True,
-			)
-			if section:
-				card["section_source_app"] = section.source_app
-				card["section_extended_minutes"] = section.extended_minutes
-				if section.target_end_time:
-					card["section_remaining_minutes"] = int(
-						time_diff_in_seconds(section.target_end_time, now) // 60
-					)
 
 		if row.current_session:
 			session = frappe.db.get_value(
@@ -79,11 +61,13 @@ def get_dashboard_data():
 					"source_app",
 					"reference_doctype",
 					"reference_name",
+					"notes",
 				],
 				as_dict=True,
 			)
 			if session:
 				card["work_activity"] = session.work_activity
+				card["description"] = session.notes
 				card["target_qty"] = session.target_qty
 				card["completed_qty"] = session.completed_qty
 				card["session_status"] = session.status
@@ -96,7 +80,6 @@ def get_dashboard_data():
 					card["remaining_minutes"] = int(
 						time_diff_in_seconds(session.target_end_time, now) // 60
 					)
-
 
 		events = frappe.get_all(
 			"Employee Work Log",

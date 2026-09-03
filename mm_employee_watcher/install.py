@@ -7,31 +7,22 @@ APP_ROLES = (
 	("Employee Watcher Viewer", 1),
 )
 
-DEFAULT_SECTIONS = (
-	("Sales Office", "Work", 120),
-	("Sales Warehouse", "Work", 120),
-	("Break", "Break", 30),
-)
-
 DEFAULT_ACTIVITIES = (
-	("Sales Invoice Creation", "Sales Office", 60),
-	("Payment Entry", "Sales Office", 45),
-	("Report Viewing", "Sales Office", 30),
-	("Picking", "Sales Warehouse", 60),
-	("Putaway", "Sales Warehouse", 60),
-	("Stock Counting", "Sales Warehouse", 60),
-	("Packing", "Sales Warehouse", 60),
+	("Sales Invoice Creation", 60),
+	("Payment Entry", 45),
+	("Report Viewing", 30),
+	("Picking", 60),
+	("Putaway", 60),
+	("Stock Counting", 60),
+	("Packing", 60),
 )
 
 TRACKED_DOCTYPES = {
-	"Work Section Master": "work_section_master",
 	"Work Activity Master": "work_activity_master",
 	"Employee Work Session": "employee_work_session",
 	"Employee Work Log": "employee_work_log",
 	"Employee Work Queue": "employee_work_queue",
 	"Employee Current Status": "employee_current_status",
-	"Employee Section Session": "employee_section_session",
-	"Employee Section Schedule": "employee_section_schedule",
 }
 
 
@@ -58,7 +49,7 @@ def repair_doctype_modules():
 	"""Fix stale DocType module metadata that can break controller import on upgrade.
 
 	Older installs may keep legacy module values like
-	`frappe.core.doctype.work_section_master`; this forces the module back to
+	`frappe.core.doctype.work_activity_master`; this forces the module back to
 	this app so migration can complete and default records can be seeded.
 	"""
 	target_module = "MM Employee Watcher"
@@ -94,7 +85,7 @@ def repair_doctype_modules():
 def setup_required_records():
 	create_user_tracking_field()
 	create_app_roles()
-	create_default_sections_and_activities()
+	create_default_activities()
 
 
 def create_user_tracking_field():
@@ -135,36 +126,18 @@ def create_app_roles():
 		).insert(ignore_permissions=True)
 
 
-def create_default_sections_and_activities():
+def create_default_activities():
 	"""Provide useful defaults without overwriting a site's own masters."""
-	for section_name, section_type, duration in DEFAULT_SECTIONS:
-		if frappe.db.exists("Work Section Master", section_name):
+	for activity_name, duration in DEFAULT_ACTIVITIES:
+		if frappe.db.exists("Work Activity Master", activity_name):
 			continue
 		frappe.get_doc(
 			{
-				"doctype": "Work Section Master",
-				"section_name": section_name,
-				"section_type": section_type,
+				"doctype": "Work Activity Master",
+				"activity_name": activity_name,
 				"default_duration_minutes": duration,
-				"enabled": 1,
 			}
 		).insert(ignore_permissions=True)
-
-	for activity_name, work_section, duration in DEFAULT_ACTIVITIES:
-		if not frappe.db.exists("Work Activity Master", activity_name):
-			frappe.get_doc(
-				{
-					"doctype": "Work Activity Master",
-					"activity_name": activity_name,
-					"work_section": work_section,
-					"default_duration_minutes": duration,
-				}
-			).insert(ignore_permissions=True)
-			continue
-		if not frappe.db.get_value("Work Activity Master", activity_name, "work_section"):
-			frappe.db.set_value(
-				"Work Activity Master", activity_name, "work_section", work_section
-			)
 
 
 def run_if_not_already_installed():

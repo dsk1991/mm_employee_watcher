@@ -6,7 +6,6 @@
  "field_order": [
   "employee",
   "work_activity",
-  "work_section",
   "priority",
   "status",
   "column_break_1",
@@ -32,15 +31,6 @@
    "label": "Work Activity",
    "options": "Work Activity Master",
    "reqd": 1
-  },
-  {
-   "fetch_from": "work_activity.work_section",
-   "fieldname": "work_section",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Work Section",
-   "options": "Work Section Master",
-   "read_only": 1
   },
   {
    "default": "0",

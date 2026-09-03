@@ -5,8 +5,6 @@
  "engine": "InnoDB",
  "field_order": [
   "employee",
-  "work_section",
-  "section_session",
   "work_session",
   "event_type",
   "event_time",
@@ -28,19 +26,6 @@
    "reqd": 1
   },
   {
-   "fieldname": "work_section",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Work Section",
-   "options": "Work Section Master"
-  },
-  {
-   "fieldname": "section_session",
-   "fieldtype": "Link",
-   "label": "Section Session",
-   "options": "Employee Section Session"
-  },
-  {
    "fieldname": "work_session",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -53,7 +38,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Event Type",
-   "options": "Start\nPause\nResume\nExtend\nComplete\nIdle Start\nIdle End\nBlocked\nUnblocked\nSection Start\nSection End\nScreen Opened\nDocument Created\nDocument Submitted\nReport Viewed\nProgress Updated\nSection Mismatch",
+   "options": "Start\nPause\nResume\nExtend\nComplete\nIdle Start\nIdle End\nBlocked\nUnblocked\nScreen Opened\nDocument Created\nDocument Submitted\nReport Viewed\nProgress Updated",
    "reqd": 1
   },
   {
