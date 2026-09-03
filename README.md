@@ -40,7 +40,7 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
   (`mm_tracking_enabled`) added to the standard User form on install.
   Unchecked users are invisible to the watcher: no popups, no scheduler
   actions, no state changes.
-- **Floating work widget** (`public/js/mm_watcher.js`, loaded on every Desk
+- **Floating work widget** (`public/js/mm_employee_watcher.bundle.js`, loaded on every Desk
   page): a small WhatsApp-style button bottom-right with a live countdown
   badge for the current work. Click it for a panel — current activity,
   description, timer, and **End Work / +15m / +30m / Blocked** — or
@@ -82,7 +82,7 @@ the mobile source must call them before mobile activity becomes live.
 ```bash
 bench get-app --branch main https://github.com/dsk1991/mm_employee_watcher.git
 bench --site your-site install-app mm_employee_watcher
-bench build --app mm_employee_watcher   # picks up public/js/mm_watcher.js
+bench build --app mm_employee_watcher   # builds public/js/mm_employee_watcher.bundle.js
 ```
 
 For an existing installation, update and migrate normally. The
@@ -141,7 +141,7 @@ mm_employee_watcher/
     utils.py                      # shared helpers (status transitions, realtime)
     state_machine.py              # pure work-session transition rules
     patches/                      # migration patches (v0_3_0_remove_sections)
-    public/js/mm_watcher.js       # floating work widget and dialogs
+    public/js/mm_employee_watcher.bundle.js       # floating work widget and dialogs
     www/mm_dashboard.html         # the wall-display dashboard page
     www/mm_dashboard.py           # page context (redirects Guests to /login)
     mm_employee_watcher/doctype/  # the 5 DocTypes

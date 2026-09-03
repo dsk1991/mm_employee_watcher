@@ -13,12 +13,20 @@
 
 frappe.provide("mm_employee_watcher");
 
-$(document).on("app_ready", function () {
+function mm_watcher_boot() {
+	if (typeof frappe === "undefined" || !frappe.session) return;
 	mm_employee_watcher.init();
-});
+}
+
+$(document).on("app_ready", mm_watcher_boot);
+// Fallback: if this bundle finished loading after `app_ready` already fired,
+// boot anyway. init() is guarded so a double call is a no-op.
+setTimeout(mm_watcher_boot, 3000);
 
 mm_employee_watcher.init = function () {
+	if (mm_employee_watcher._inited) return;
 	if (frappe.session.user === "Guest") return;
+	mm_employee_watcher._inited = true;
 
 	mm_employee_watcher.ensure_widget();
 	mm_employee_watcher._last_interaction = Date.now();

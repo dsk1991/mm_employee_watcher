@@ -128,7 +128,7 @@ class MetadataTest(unittest.TestCase):
 		self.assertNotIn("notify_due_section_schedules", hooks)
 
 	def test_work_dialog_reads_live_description_value(self):
-		script = (ROOT / "mm_employee_watcher" / "public" / "js" / "mm_watcher.js").read_text(
+		script = (ROOT / "mm_employee_watcher" / "public" / "js" / "mm_employee_watcher.bundle.js").read_text(
 			encoding="utf-8"
 		)
 		self.assertIn('d.get_field("description")', script)
@@ -136,7 +136,7 @@ class MetadataTest(unittest.TestCase):
 		self.assertIn("description: description", script)
 
 	def test_desk_js_has_floating_widget(self):
-		script = (ROOT / "mm_employee_watcher" / "public" / "js" / "mm_watcher.js").read_text(
+		script = (ROOT / "mm_employee_watcher" / "public" / "js" / "mm_employee_watcher.bundle.js").read_text(
 			encoding="utf-8"
 		)
 		self.assertIn("mm-fab", script)

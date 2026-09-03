@@ -25,4 +25,4 @@ jobs:
       - name: Run dependency-free tests
         run: python -m unittest discover -s tests -v
       - name: Validate Desk JavaScript syntax
-        run: node --check mm_employee_watcher/public/js/mm_watcher.js
+        run: node --check mm_employee_watcher/public/js/mm_employee_watcher.bundle.js

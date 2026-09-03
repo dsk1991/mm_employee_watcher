@@ -15,9 +15,9 @@ required_apps = ["frappe", "erpnext"]
 # (bottom-right) with a live timer, a forced "Work Now" popup when the
 # logged-in employee has no active session, an "End Work — what did you
 # do?" prompt, and the Done/Extend/Blocked popup when their session's
-# target time expires. See public/js/mm_watcher.js.
+# target time expires. See public/js/mm_employee_watcher.bundle.js.
 
-app_include_js = "/assets/mm_employee_watcher/js/mm_watcher.js"
+app_include_js = "mm_employee_watcher.bundle.js"
 
 # Install
 # -------
