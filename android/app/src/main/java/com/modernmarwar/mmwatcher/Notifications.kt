@@ -51,7 +51,7 @@ object Notifications {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         return NotificationCompat.Builder(context, CHANNEL_TRACKING)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_stat_watch)
             .setContentTitle(title)
             .setContentText(text)
             .setContentIntent(open)
@@ -82,7 +82,7 @@ object Notifications {
         }
 
         val notif = NotificationCompat.Builder(context, CHANNEL_ALERTS)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_stat_watch)
             .setContentTitle("Time is up" + (activity?.let { " · $it" } ?: ""))
             .setContentText("Mark it done, extend, or flag it blocked.")
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
@@ -102,7 +102,7 @@ object Notifications {
 
     fun error(context: Context, title: String, text: String) {
         val notif = NotificationCompat.Builder(context, CHANNEL_ALERTS)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_stat_watch)
             .setContentTitle(title)
             .setContentText(text)
             .setAutoCancel(true)
