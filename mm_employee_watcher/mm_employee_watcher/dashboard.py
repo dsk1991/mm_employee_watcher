@@ -33,6 +33,21 @@ def get_dashboard_data():
 	)
 
 	now = now_datetime()
+
+	# Today's Work Log event counts per employee, in one grouped query.
+	counts_by_employee = {}
+	for log in frappe.db.sql(
+		"""
+		select employee, event_type, count(name) as event_count
+		from `tabEmployee Work Log`
+		where event_time >= %s
+		group by employee, event_type
+		""",
+		(f"{today()} 00:00:00",),
+		as_dict=True,
+	):
+		counts_by_employee.setdefault(log.employee, {})[log.event_type] = log.event_count
+
 	cards = []
 	for row in rows:
 		if not is_tracking_enabled(row.employee):
@@ -81,13 +96,7 @@ def get_dashboard_data():
 						time_diff_in_seconds(session.target_end_time, now) // 60
 					)
 
-		events = frappe.get_all(
-			"Employee Work Log",
-			filters={"employee": row.employee, "event_time": [">=", f"{today()} 00:00:00"]},
-			fields=["event_type", "count(name) as event_count"],
-			group_by="event_type",
-		)
-		card["today_counts"] = {event.event_type: event.event_count for event in events}
+		card["today_counts"] = counts_by_employee.get(row.employee, {})
 		cards.append(card)
 
 	cards.sort(key=lambda c: (STATUS_ORDER.get(c["status"], 9), c["employee_name"]))
