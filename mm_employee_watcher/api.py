@@ -433,7 +433,8 @@ def start_work(
 	popup, WMS, or the HHT app. Refuses if the employee already has one
 	open (the DocType also validates this server-side)."""
 	employee = _get_employee_for_user(employee)
-	if not (description or "").strip():
+	description = (description or "").strip()
+	if not description:
 		frappe.throw(_("Work Description is required"))
 
 	if not is_tracking_enabled(employee):

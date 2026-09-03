@@ -127,6 +127,14 @@ class MetadataTest(unittest.TestCase):
 		self.assertIn('"Payment Entry"', hooks)
 		self.assertIn("record_document_activity", hooks)
 
+	def test_work_dialog_reads_live_description_value(self):
+		script = (ROOT / "mm_employee_watcher" / "public" / "js" / "mm_watcher.js").read_text(
+			encoding="utf-8"
+		)
+		self.assertIn('d.get_field("description")', script)
+		self.assertIn("descriptionControl.$input.val()", script)
+		self.assertIn("description: description", script)
+
 
 if __name__ == "__main__":
 	unittest.main()

@@ -505,13 +505,26 @@ mm_employee_watcher.show_work_now_dialog = function (suggestion) {
 			],
 			primary_action_label: __("Start Work"),
 			primary_action: function (values) {
+				// Small Text controls may not copy the last typed characters into
+				// `values` until the textarea loses focus. Read the live input so a
+				// user who types and immediately clicks Start Work is not rejected.
+				var descriptionControl = d.get_field("description");
+				var description = String(
+					descriptionControl && descriptionControl.$input
+						? descriptionControl.$input.val()
+						: values.description || ""
+				).trim();
+				if (!description) {
+					frappe.msgprint(__("Work Description is required"));
+					return;
+				}
 				frappe.call({
 					method: "mm_employee_watcher.api.start_work",
 					args: {
 						work_activity: values.work_activity,
 						target_qty: values.target_qty,
 						target_minutes: values.duration_minutes,
-						description: values.description,
+						description: description,
 						reference_doctype: suggestion ? suggestion.reference_doctype : null,
 						reference_name: suggestion ? suggestion.reference_name : null,
 					},
