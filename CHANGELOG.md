@@ -28,9 +28,14 @@
   every 2 minutes (BREAK is left alone).
 - Every saved document an employee opens on Desk is recorded as a passive
   `Screen Opened` log (`record_screen_view`) — no work-session change.
-- Dashboard cards are clickable: `get_employee_detail` powers a drill-down
-  showing that employee's whole day — every work session (with duration and
-  what they did) and the full activity log.
+- Dashboard cards are clickable and carry a **View day** button:
+  `get_employee_detail` powers a drill-down showing that employee's whole
+  day — every work session (with duration and what they did) and the full
+  activity log. Cards are more compact and WORKING/BLOCKED cards show a live
+  1-second countdown.
+- Widget: robot icon; the side panel now opens/closes purely on the
+  `mm-open` class (an earlier `panel.show()` left it stuck open); it docks to
+  the right edge.
 
 ## 0.2.0 - 2026-09-03
 

@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">MM Work Tracker</string>
+
+    <string name="sign_in">Sign in</string>
+    <string name="site_url">Site URL (https://your-erp.example.com)</string>
+    <string name="username">ERPNext username or email</string>
+    <string name="password">Password</string>
+
+    <string name="start_work">Start Work</string>
+    <string name="end_work">End Work</string>
+    <string name="extend_15">+15 min</string>
+    <string name="extend_30">+30 min</string>
+    <string name="mark_blocked">Mark Blocked</string>
+    <string name="resume_work">Resume Work</string>
+    <string name="take_break">I\'m on a break</string>
+
+    <string name="work_activity">Work activity</string>
+    <string name="description">What are you working on?</string>
+    <string name="duration_minutes">Target duration (minutes)</string>
+    <string name="target_qty">Target quantity (optional)</string>
+
+    <string name="channel_tracking_name">Work tracking</string>
+    <string name="channel_tracking_desc">Ongoing notification while your work is being tracked.</string>
+    <string name="channel_alerts_name">Work alerts</string>
+    <string name="channel_alerts_desc">Alerts when a work session passes its target time.</string>
+
+    <string name="tracking_active">Work tracking active</string>
+    <string name="stop_tracking">Stop tracking</string>
+</resources>

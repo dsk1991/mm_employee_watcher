@@ -162,13 +162,17 @@ mm_employee_watcher.ensure_widget = function () {
 			70% { box-shadow: 0 0 0 14px rgba(239,68,68,0); }
 			100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
 		}
+		/* Side panel docked to the right edge. Visibility is the .mm-open
+		   class only — render_widget never calls jQuery show()/hide() on it,
+		   so re-rendering its contents can't force it back open. */
 		#mm-fab-panel {
-			position: fixed; right: 18px; bottom: 84px; z-index: 1050;
-			width: 300px; max-width: calc(100vw - 30px);
+			position: fixed; right: 0; bottom: 88px; z-index: 1049;
+			width: 280px; max-width: calc(100vw - 12px);
 			background: var(--fg-color, #fff); color: var(--text-color, #1f272e);
-			border: 1px solid var(--border-color, #e2e6e9);
-			border-radius: 12px; padding: 14px; font-size: 13px;
-			box-shadow: 0 10px 34px rgba(0,0,0,.28); display: none;
+			border: 1px solid var(--border-color, #e2e6e9); border-right: none;
+			border-radius: 12px 0 0 12px; padding: 14px 16px; font-size: 13px;
+			box-shadow: -6px 8px 30px rgba(0,0,0,.22);
+			display: none;
 		}
 		#mm-fab-panel.mm-open { display: block; }
 		#mm-fab-panel .mm-p-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -250,10 +254,9 @@ mm_employee_watcher.render_widget = function (status) {
 	var panel = $("#mm-fab-panel");
 	if (!status || status.tracking === false) {
 		fab.hide();
-		panel.removeClass("mm-open").hide();
+		panel.removeClass("mm-open");
 		return;
 	}
-	panel.show();
 
 	var session = status.session || null;
 	var working = !!session;
@@ -270,7 +273,7 @@ mm_employee_watcher.render_widget = function (status) {
 		var clock = mm_employee_watcher.countdown(session.target_end_time);
 		fab.toggleClass("mm-over", over && mini);
 		fab.html(
-			(mini ? "" : "💼") +
+			(mini ? "" : "🤖") +
 			'<span class="mm-badge' + (over && !mini ? " mm-over" : "") + '" data-mm-badge>' +
 			clock +
 			"</span>"
@@ -295,7 +298,7 @@ mm_employee_watcher.render_widget = function (status) {
 		);
 	} else {
 		fab.removeClass("mm-over");
-		fab.html(mini ? '<span data-mm-badge>&bull;</span>' : "💬").show();
+		fab.html(mini ? '<span data-mm-badge>&bull;</span>' : "🤖").show();
 		panel.html(
 			head +
 			'<div class="mm-p-act">' + __("No work in progress") + "</div>" +

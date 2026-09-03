@@ -95,6 +95,10 @@ def get_dashboard_data():
 				card["source_app"] = session.source_app
 				card["reference_doctype"] = session.reference_doctype
 				card["reference_name"] = session.reference_name
+				card["start_time"] = str(session.start_time) if session.start_time else None
+				card["target_end_time"] = (
+					str(session.target_end_time) if session.target_end_time else None
+				)
 				if session.target_end_time:
 					card["remaining_minutes"] = int(
 						time_diff_in_seconds(session.target_end_time, now) // 60
