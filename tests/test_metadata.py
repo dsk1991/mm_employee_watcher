@@ -142,6 +142,7 @@ class MetadataTest(unittest.TestCase):
 		self.assertIn("mm-fab", script)
 		self.assertIn("mm_employee_watcher.api.end_work", script)
 		self.assertIn("lock_dialog", script)
+		self.assertIn("set_minimized", script)
 		self.assertNotIn("mm-work-bar", script)
 
 	def test_migration_patch_registered(self):

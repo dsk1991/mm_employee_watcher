@@ -20,6 +20,9 @@
 - Ending work asks "What did you do / complete?" (required free text) via
   the new `end_work` API, then immediately prompts for the next work.
 - Dashboard drops the section column and shows the work description.
+- The floating widget loads as a proper `mm_employee_watcher.bundle.js`
+  (fixes "frappe is not defined" when it was injected as a raw script), and
+  can be minimized to a thin edge sliver (remembered per browser).
 
 ## 0.2.0 - 2026-09-03
 

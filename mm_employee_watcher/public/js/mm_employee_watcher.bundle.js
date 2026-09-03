@@ -132,6 +132,13 @@ mm_employee_watcher.ensure_widget = function () {
 		}
 		#mm-fab.mm-idle .mm-badge { background: #7f1d1d; color: #fff; }
 		#mm-fab .mm-badge.mm-over { background: #b91c1c; color: #fff; }
+		/* Minimized: a thin colour sliver tucked against the right edge. */
+		#mm-fab.mm-min {
+			width: 12px; height: 46px; right: 0; bottom: 26px;
+			border-radius: 8px 0 0 8px; font-size: 0; animation: none;
+			box-shadow: -2px 2px 8px rgba(0,0,0,.25);
+		}
+		#mm-fab.mm-min .mm-badge { display: none; }
 		@keyframes mm-pulse {
 			0% { box-shadow: 0 0 0 0 rgba(239,68,68,.55); }
 			70% { box-shadow: 0 0 0 14px rgba(239,68,68,0); }
@@ -146,6 +153,10 @@ mm_employee_watcher.ensure_widget = function () {
 			box-shadow: 0 10px 34px rgba(0,0,0,.28); display: none;
 		}
 		#mm-fab-panel.mm-open { display: block; }
+		#mm-fab-panel .mm-p-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+		#mm-fab-panel .mm-p-head .mm-p-title { font-size: 10px; letter-spacing: .5px; text-transform: uppercase; color: var(--text-muted, #6c7680); }
+		#mm-fab-panel .mm-p-head .mm-p-min { border: none; background: transparent; cursor: pointer; font-size: 16px; line-height: 1; color: var(--text-muted, #6c7680); padding: 2px 6px; }
+		#mm-fab-panel .mm-p-head .mm-p-min:hover { color: var(--text-color, #1f272e); }
 		#mm-fab-panel .mm-p-act { font-weight: 700; font-size: 14px; }
 		#mm-fab-panel .mm-p-desc { color: var(--text-muted, #6c7680); margin: 4px 0 8px; white-space: pre-wrap; }
 		#mm-fab-panel .mm-p-clock { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; margin: 6px 0; }
@@ -155,14 +166,37 @@ mm_employee_watcher.ensure_widget = function () {
 		#mm-fab-panel .mm-p-actions button { white-space: nowrap; }
 	`);
 	$("body").append('<button id="mm-fab" style="display:none"></button><div id="mm-fab-panel"></div>');
+	try {
+		mm_employee_watcher._minimized = localStorage.getItem("mm_watcher_min") === "1";
+	} catch (e) {
+		mm_employee_watcher._minimized = false;
+	}
 	$(document).on("click", "#mm-fab", function () {
-		$("#mm-fab-panel").toggleClass("mm-open");
+		if (mm_employee_watcher._minimized) {
+			mm_employee_watcher.set_minimized(false);
+			$("#mm-fab-panel").addClass("mm-open");
+		} else {
+			$("#mm-fab-panel").toggleClass("mm-open");
+		}
 	});
 	$(document).on("click", function (e) {
 		if (!$(e.target).closest("#mm-fab-panel, #mm-fab").length) {
 			$("#mm-fab-panel").removeClass("mm-open");
 		}
 	});
+};
+
+// Collapse the button to a thin sliver on the screen edge (remembered per
+// browser). Clicking the sliver restores it.
+mm_employee_watcher.set_minimized = function (min) {
+	mm_employee_watcher._minimized = !!min;
+	try {
+		localStorage.setItem("mm_watcher_min", min ? "1" : "0");
+	} catch (e) {
+		/* private mode / storage blocked - state stays in memory only */
+	}
+	$("#mm-fab").toggleClass("mm-min", !!min);
+	if (min) $("#mm-fab-panel").removeClass("mm-open");
 };
 
 mm_employee_watcher.escape = function (value) {
@@ -202,6 +236,11 @@ mm_employee_watcher.render_widget = function (status) {
 	var session = status.session || null;
 	var working = !!session;
 	fab.toggleClass("mm-idle", !working);
+	fab.toggleClass("mm-min", !!mm_employee_watcher._minimized);
+
+	var head =
+		'<div class="mm-p-head"><span class="mm-p-title">' + __("Work Timer") + "</span>" +
+		'<button class="mm-p-min" data-mm-min title="' + __("Minimize") + '">&#8211;</button></div>';
 
 	if (working) {
 		var over = mm_employee_watcher.is_overdue(session.target_end_time);
@@ -215,6 +254,7 @@ mm_employee_watcher.render_widget = function (status) {
 			? frappe.datetime.str_to_user(session.start_time)
 			: "";
 		panel.html(
+			head +
 			'<div class="mm-p-act">' + mm_employee_watcher.escape(session.work_activity) + "</div>" +
 			'<div class="mm-p-desc">' + mm_employee_watcher.escape(session.notes || "") + "</div>" +
 			'<div class="mm-p-clock' + (over ? " mm-over" : "") + '" data-mm-panel-clock>' +
@@ -230,6 +270,7 @@ mm_employee_watcher.render_widget = function (status) {
 	} else {
 		fab.html("💬").show();
 		panel.html(
+			head +
 			'<div class="mm-p-act">' + __("No work in progress") + "</div>" +
 			'<div class="mm-p-desc">' + __("Start a new work to begin the timer.") + "</div>" +
 			'<div class="mm-p-actions">' +
@@ -238,6 +279,9 @@ mm_employee_watcher.render_widget = function (status) {
 		);
 	}
 
+	panel.find("[data-mm-min]").on("click", function () {
+		mm_employee_watcher.set_minimized(true);
+	});
 	panel.find("[data-mm-end]").on("click", mm_employee_watcher.show_end_work_dialog);
 	panel.find("[data-mm-start]").on("click", function () {
 		mm_employee_watcher.show_work_now_dialog();

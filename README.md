@@ -44,7 +44,9 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
   page): a small WhatsApp-style button bottom-right with a live countdown
   badge for the current work. Click it for a panel — current activity,
   description, timer, and **End Work / +15m / +30m / Blocked** — or
-  **Start Work** when idle.
+  **Start Work** when idle. A **–** in the panel minimizes it to a thin
+  sliver on the screen edge (remembered per browser); click the sliver to
+  restore it.
 - **Forced start prompt.** Opening ERPNext Desk with no active work shows a
   **"What work are you starting now?"** popup (Work, required Description,
   Duration, Target Qty). It will not close until work is started; the
