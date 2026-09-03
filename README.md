@@ -15,10 +15,17 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
 
 ## What's in this cut
 
-- DocTypes: `Work Activity Master`, `Employee Work Session`,
+- DocTypes: `Work Section Master`, `Employee Section Session`,
+  `Employee Section Schedule`, `Work Activity Master`, `Employee Work Session`,
   `Employee Current Status`, `Employee Work Log`, `Employee Work Queue`
+- **One active section per employee.** A section (Sales Office, Sales
+  Warehouse, Break) groups all of that employee's sequential work activities.
+- Staff schedules can pre-assign section, time window, suggested activity,
+  and instructions. Due schedules push a Start Section prompt; missed entries
+  are marked Skipped for supervisor review.
 - Server-side rule: one Primary Active Work per employee at a time
-- Whitelisted API: `start_work`, `complete_work`, `extend_work`,
+- Whitelisted API: `start_section`, `end_section`, `extend_section`,
+  `get_my_schedule`, `start_work`, `complete_work`, `extend_work`,
   `pause_work`, `resume_work`, `mark_blocked`, `get_my_status`,
   `get_next_work`, `heartbeat`, plus WMS-safe `start_reference_work`,
   `update_progress`, and `complete_reference_work`
@@ -37,8 +44,13 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
   (`mm_tracking_enabled`) added to the standard User form on install.
   Unchecked users are invisible to the watcher: no popups, no scheduler
   actions, no state changes.
+- **Always-visible Desk work bar** (`public/js/mm_watcher.js`): current
+  section, section countdown, current activity, work countdown, reference,
+  and Start/End controls. When no section is active it stays red and asks the
+  employee to start new work.
 - **Desk popup** (`public/js/mm_watcher.js`, loaded on every Desk page):
-  - No active work? → **"Work Now"** dialog (Work, Description, Start
+  - No active section? → scheduled/default **Start Section** dialog.
+  - No active work? → **"Work Now"** dialog (Work, required Description, Start
     Time, Duration, Target Qty) as soon as Desk opens.
   - Active session's target time expired? → **Done / Extend / Blocked**
     dialog, pushed in real time via `frappe.publish_realtime`.
@@ -46,6 +58,10 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
   `Employee Work Queue` and auto-starts the next pending item for that
   employee — no idle gap, no manual Start tap. Only when the queue is
   empty does the employee go `IDLE` and get the "Work Now" popup.
+- Sales Invoice and Payment Entry create/submit events are recorded
+  automatically. Opening Sales Invoice, Payment Entry, or a report also
+  selects the matching activity, but never silently switches an employee out
+  of a physical/WMS section.
 - **Wall-display dashboard** at `/mm_dashboard` — a standalone page (not
   inside Desk), openable by URL from any browser/TV, auto-refreshing
   every 30 seconds. Live cards per employee (status, current work,
@@ -56,10 +72,10 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
   one compact work bar, idempotent document start, progress sync, and final
   completion calls.
 
-**Not yet built** (later phases from the design doc): the always-visible
-in-Desk Smart Work Bar strip, the daily productivity report, FCM push
-delivery for a closed mobile app, and the WMS/Production
-auto-completion hooks (Packing Job, Pick List, Putaway, Job Card).
+**Not yet built**: the daily productivity report, FCM push delivery for a
+closed mobile app, and installation of watcher calls into the separately
+maintained Android WMS APK. This repository provides the WMS APIs and contract;
+the mobile source must call them before mobile activity becomes live.
 
 ## Install (on a bench)
 
@@ -121,7 +137,7 @@ mm_employee_watcher/
     dashboard.py                  # get_dashboard_data — feeds /mm_dashboard
     tasks.py                      # scheduled jobs
     utils.py                      # shared helpers (status transitions, realtime)
-    public/js/mm_watcher.js       # Desk popups: Work Now / Done-Extend-Blocked
+    public/js/mm_watcher.js       # Persistent section/work bar and dialogs
     www/mm_dashboard.html         # the wall-display dashboard page
     www/mm_dashboard.py           # page context (redirects Guests to /login)
     mm_employee_watcher/doctype/  # the 5 DocTypes

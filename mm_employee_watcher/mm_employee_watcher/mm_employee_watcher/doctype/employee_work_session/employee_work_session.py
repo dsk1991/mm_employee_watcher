@@ -11,6 +11,7 @@ class EmployeeWorkSession(Document):
 	def validate(self):
 		self.validate_transition()
 		self.validate_values()
+		self.validate_section()
 		self.enforce_single_primary_session()
 
 	def validate_transition(self):
@@ -32,6 +33,22 @@ class EmployeeWorkSession(Document):
 		if self.start_time and self.target_end_time:
 			if get_datetime(self.target_end_time) <= get_datetime(self.start_time):
 				frappe.throw(_("Target End Time must be after Start Time"))
+
+	def validate_section(self):
+		if not self.section_session:
+			return
+		section = frappe.db.get_value(
+			"Employee Section Session",
+			self.section_session,
+			["employee", "work_section", "status"],
+			as_dict=True,
+		)
+		if not section:
+			frappe.throw(_("Section Session {0} does not exist").format(self.section_session))
+		if section.employee != self.employee or section.work_section != self.work_section:
+			frappe.throw(_("Work Session employee and section must match its Section Session"))
+		if self.is_new() and section.status != "Active":
+			frappe.throw(_("New work cannot be added to a closed Section Session"))
 
 	def enforce_single_primary_session(self):
 		"""Hard rule (design doc section 7, #1): an employee can have only

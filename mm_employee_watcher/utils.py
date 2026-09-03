@@ -10,6 +10,7 @@ from frappe.utils import now_datetime, add_to_date, cint
 
 from mm_employee_watcher.state_machine import (
 	OPEN_SESSION_STATUSES,
+	OPEN_SECTION_STATUSES,
 	SESSION_ACTIVE,
 	SESSION_BLOCKED,
 	SESSION_CANCELLED,
@@ -30,6 +31,8 @@ STATUS_OFF_DUTY = "OFF DUTY"
 # Heartbeat older than this = employee counted OFFLINE, not IDLE.
 OFFLINE_AFTER_MINUTES = 10
 
+_UNSET = object()
+
 
 def get_or_create_status(employee: str):
 	"""Return the singleton Employee Current Status row for an employee,
@@ -46,7 +49,13 @@ def get_or_create_status(employee: str):
 	return doc
 
 
-def set_status(employee: str, status: str, current_session: str | None = None):
+def set_status(
+	employee: str,
+	status: str,
+	current_session: str | None = None,
+	current_section=_UNSET,
+	current_section_session=_UNSET,
+):
 	"""Central place that changes Employee Current Status and notifies
 	every connected client via realtime — this is what the Smart Work Bar
 	in every app listens to."""
@@ -54,6 +63,10 @@ def set_status(employee: str, status: str, current_session: str | None = None):
 	changed = doc.status != status or doc.current_session != current_session
 	doc.status = status
 	doc.current_session = current_session
+	if current_section is not _UNSET:
+		doc.current_section = current_section
+	if current_section_session is not _UNSET:
+		doc.current_section_session = current_section_session
 	doc.status_since = now_datetime() if changed or not doc.status_since else doc.status_since
 	if status == STATUS_IDLE and (changed or not doc.idle_since):
 		doc.idle_since = now_datetime()
@@ -77,8 +90,20 @@ def publish_status(employee: str, status_doc=None):
 		"employee": employee,
 		"status": status_doc.status,
 		"current_session": status_doc.current_session,
+		"current_section": status_doc.current_section,
+		"current_section_session": status_doc.current_section_session,
 		"status_since": status_doc.status_since,
 	}
+
+	if status_doc.current_section_session:
+		section = frappe.db.get_value(
+			"Employee Section Session",
+			status_doc.current_section_session,
+			["work_section", "start_time", "target_end_time", "source_app", "status"],
+			as_dict=True,
+		)
+		if section:
+			payload["section"] = section
 
 	# Session-specific detail for the Smart Work Bar, if one is active.
 	if status_doc.current_session:
@@ -125,18 +150,45 @@ def get_active_session(employee: str):
 	return frappe.get_doc("Employee Work Session", name) if name else None
 
 
-def log_event(employee, work_session, event_type, qty=None, remarks=None):
-	frappe.get_doc(
+def get_active_section_session(employee: str):
+	"""Return the employee's one active section session, if present."""
+	name = frappe.db.exists(
+		"Employee Section Session",
 		{
+			"employee": employee,
+			"status": ["in", list(OPEN_SECTION_STATUSES)],
+		},
+	)
+	return frappe.get_doc("Employee Section Session", name) if name else None
+
+
+def log_event(
+	employee,
+	work_session,
+	event_type,
+	qty=None,
+	remarks=None,
+	section_session=None,
+	work_section=None,
+	source_app=None,
+	reference_doctype=None,
+	reference_name=None,
+):
+	doc = {
 			"doctype": "Employee Work Log",
 			"employee": employee,
 			"work_session": work_session,
+			"section_session": section_session,
+			"work_section": work_section,
+			"source_app": source_app,
 			"event_type": event_type,
 			"event_time": now_datetime(),
 			"qty": qty,
 			"remarks": remarks,
+			"reference_doctype": reference_doctype,
+			"reference_name": reference_name,
 		}
-	).insert(ignore_permissions=True)
+	frappe.get_doc(doc).insert(ignore_permissions=True)
 
 
 def offline_cutoff():

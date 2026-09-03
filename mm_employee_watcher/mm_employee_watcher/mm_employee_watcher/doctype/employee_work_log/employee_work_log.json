@@ -5,10 +5,15 @@
  "engine": "InnoDB",
  "field_order": [
   "employee",
+  "work_section",
+  "section_session",
   "work_session",
   "event_type",
   "event_time",
   "column_break_1",
+  "source_app",
+  "reference_doctype",
+  "reference_name",
   "qty",
   "remarks"
  ],
@@ -23,6 +28,19 @@
    "reqd": 1
   },
   {
+   "fieldname": "work_section",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Work Section",
+   "options": "Work Section Master"
+  },
+  {
+   "fieldname": "section_session",
+   "fieldtype": "Link",
+   "label": "Section Session",
+   "options": "Employee Section Session"
+  },
+  {
    "fieldname": "work_session",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -35,7 +53,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Event Type",
-   "options": "Start\nPause\nResume\nExtend\nComplete\nIdle Start\nIdle End\nBlocked\nUnblocked",
+   "options": "Start\nPause\nResume\nExtend\nComplete\nIdle Start\nIdle End\nBlocked\nUnblocked\nSection Start\nSection End\nScreen Opened\nDocument Created\nDocument Submitted\nReport Viewed\nProgress Updated\nSection Mismatch",
    "reqd": 1
   },
   {
@@ -48,6 +66,24 @@
   {
    "fieldname": "column_break_1",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "source_app",
+   "fieldtype": "Select",
+   "label": "Source App",
+   "options": "ERPNext\nWMS\nHHT\nOther"
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Reference DocType",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference Name",
+   "options": "reference_doctype"
   },
   {
    "fieldname": "qty",

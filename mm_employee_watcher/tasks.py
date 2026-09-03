@@ -74,6 +74,93 @@ def check_expired_sessions():
 		)
 
 
+def check_expired_sections():
+	"""Notify once when an active section passes its server-side target."""
+	expired = frappe.get_all(
+		"Employee Section Session",
+		filters={
+			"status": "Active",
+			"target_end_time": ["<", now_datetime()],
+			"expiry_notified_at": ["is", "not set"],
+		},
+		fields=["name", "employee", "work_section", "target_end_time"],
+	)
+	for section in expired:
+		if not is_tracking_enabled(section.employee):
+			continue
+		message = {
+			"section_session": section.name,
+			"employee": section.employee,
+			"work_section": section.work_section,
+			"target_end_time": section.target_end_time,
+		}
+		frappe.publish_realtime(
+			event="mm_employee_watcher:section_expired",
+			message=message,
+			user=frappe.db.get_value("Employee", section.employee, "user_id"),
+		)
+		frappe.publish_realtime(
+			event="mm_employee_watcher:dashboard_update",
+			message={**message, "section_overdue": True},
+		)
+		frappe.db.set_value(
+			"Employee Section Session",
+			section.name,
+			"expiry_notified_at",
+			now_datetime(),
+			update_modified=False,
+		)
+
+
+def notify_due_section_schedules():
+	"""Push each due schedule once and mark missed unstarted entries skipped."""
+	now = now_datetime()
+	due = frappe.get_all(
+		"Employee Section Schedule",
+		filters={
+			"status": "Scheduled",
+			"scheduled_start": ["<=", now],
+			"scheduled_end": [">", now],
+			"start_notified_at": ["is", "not set"],
+		},
+		fields=[
+			"name",
+			"employee",
+			"work_section",
+			"default_work_activity",
+			"scheduled_start",
+			"scheduled_end",
+			"notes",
+		],
+	)
+	for schedule in due:
+		if not is_tracking_enabled(schedule.employee):
+			continue
+		frappe.publish_realtime(
+			event="mm_employee_watcher:section_required",
+			message={
+				"message": "Please start scheduled work",
+				"next_schedule": schedule,
+			},
+			user=frappe.db.get_value("Employee", schedule.employee, "user_id"),
+		)
+		frappe.db.set_value(
+			"Employee Section Schedule",
+			schedule.name,
+			"start_notified_at",
+			now,
+			update_modified=False,
+		)
+
+	missed = frappe.get_all(
+		"Employee Section Schedule",
+		filters={"status": "Scheduled", "scheduled_end": ["<=", now]},
+		pluck="name",
+	)
+	for name in missed:
+		frappe.db.set_value("Employee Section Schedule", name, "status", "Skipped")
+
+
 def check_offline_employees():
 	"""Employees whose last heartbeat is older than OFFLINE_AFTER_MINUTES,
 	and who are not on an authorized BREAK or already OFFLINE/OFF DUTY,

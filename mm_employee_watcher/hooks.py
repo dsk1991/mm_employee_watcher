@@ -30,16 +30,20 @@ after_migrate = "mm_employee_watcher.install.after_migrate"
 
 # Doc events
 # ----------
-# Hook into other apps' documents here to auto-complete the matching
-# Employee Work Session when the real operational document finishes
-# (Packing Job / Pick List / Putaway / Job Card). Left empty in this
-# foundation cut — see docs/backend-architecture.md section 4.
-#
-# doc_events = {
-#     "Delivery Note": {
-#         "on_submit": "mm_employee_watcher.integrations.wms.on_packing_complete",
-#     },
-# }
+# These events add document output to the employee's current section. They
+# are deliberately non-blocking: watcher failures never stop an accounting
+# document from saving or submitting.
+
+doc_events = {
+	"Sales Invoice": {
+		"after_insert": "mm_employee_watcher.api.record_document_activity",
+		"on_submit": "mm_employee_watcher.api.record_document_activity",
+	},
+	"Payment Entry": {
+		"after_insert": "mm_employee_watcher.api.record_document_activity",
+		"on_submit": "mm_employee_watcher.api.record_document_activity",
+	},
+}
 
 # Scheduled tasks
 # ---------------
@@ -49,6 +53,8 @@ scheduler_events = {
 		# every minute: notify once for sessions whose target_end_time has passed
 		"* * * * *": [
 			"mm_employee_watcher.tasks.check_expired_sessions",
+			"mm_employee_watcher.tasks.check_expired_sections",
+			"mm_employee_watcher.tasks.notify_due_section_schedules",
 		],
 		# every 5 minutes: mark employees with a stale heartbeat as OFFLINE
 		"*/5 * * * *": [

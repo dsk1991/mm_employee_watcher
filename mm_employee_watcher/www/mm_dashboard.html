@@ -101,6 +101,19 @@
 		font-size: 1.05rem;
 		margin: 8px 0 4px;
 	}
+	.card .section {
+		color: #93c5fd;
+		font-size: 0.9rem;
+		font-weight: 700;
+		letter-spacing: 0.4px;
+		margin-top: 8px;
+		text-transform: uppercase;
+	}
+	.card .activity-counts {
+		color: var(--muted);
+		font-size: 0.85rem;
+		margin-top: 8px;
+	}
 	.card .qty {
 		color: var(--muted);
 		font-size: 0.95rem;
@@ -196,8 +209,15 @@ function render(data) {
 		html += '<span class="status">' + (STATUS_LABEL[c.status] || c.status) + "</span>";
 		html += "</div>";
 
+		if (c.work_section) {
+			html += '<div class="section">Section: ' + escapeHtml(c.work_section) + "</div>";
+		}
+
 		if (c.work_activity) {
 			html += '<div class="work">' + escapeHtml(c.work_activity) + "</div>";
+			if (c.reference_name) {
+				html += '<div class="qty">' + escapeHtml(c.reference_doctype || "") + ": " + escapeHtml(c.reference_name) + "</div>";
+			}
 			if (c.target_qty) {
 				html += '<div class="qty">' + (c.completed_qty || 0) + " / " + c.target_qty + " pcs</div>";
 			}
@@ -225,6 +245,22 @@ function render(data) {
 
 		if (footBits.length) {
 			html += '<div class="footline"><span>' + footBits.join(" · ") + "</span></div>";
+		}
+
+		if (c.section_remaining_minutes !== undefined && c.section_remaining_minutes !== null) {
+			var sectionTime = c.section_remaining_minutes < 0
+				? "Section overdue " + fmtMinutes(-c.section_remaining_minutes)
+				: "Section " + fmtMinutes(c.section_remaining_minutes) + " left";
+			html += '<div class="activity-counts">' + sectionTime + (c.section_source_app ? " · " + escapeHtml(c.section_source_app) : "") + "</div>";
+		}
+
+		var tc = c.today_counts || {};
+		var activityBits = [];
+		if (tc["Document Created"]) activityBits.push(tc["Document Created"] + " created");
+		if (tc["Document Submitted"]) activityBits.push(tc["Document Submitted"] + " submitted");
+		if (tc["Report Viewed"]) activityBits.push(tc["Report Viewed"] + " reports");
+		if (activityBits.length) {
+			html += '<div class="activity-counts">Today: ' + activityBits.join(" · ") + "</div>";
 		}
 
 		if (c.status === "BLOCKED" && c.blocked_reason) {

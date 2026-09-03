@@ -6,7 +6,7 @@ docs/backend-architecture.md section 6.
 
 import frappe
 from frappe import _
-from frappe.utils import now_datetime, time_diff_in_seconds
+from frappe.utils import now_datetime, time_diff_in_seconds, today
 
 from mm_employee_watcher.utils import is_tracking_enabled
 
@@ -23,7 +23,15 @@ def get_dashboard_data():
 
 	rows = frappe.get_all(
 		"Employee Current Status",
-		fields=["employee", "employee_name", "status", "status_since", "current_session"],
+		fields=[
+			"employee",
+			"employee_name",
+			"status",
+			"status_since",
+			"current_section",
+			"current_section_session",
+			"current_session",
+		],
 	)
 
 	now = now_datetime()
@@ -35,10 +43,26 @@ def get_dashboard_data():
 			"employee": row.employee,
 			"employee_name": row.employee_name or row.employee,
 			"status": row.status,
+			"work_section": row.current_section,
 			"since_minutes": (
 				max(0, int(time_diff_in_seconds(now, row.status_since) // 60)) if row.status_since else None
 			),
 		}
+
+		if row.current_section_session:
+			section = frappe.db.get_value(
+				"Employee Section Session",
+				row.current_section_session,
+				["target_end_time", "start_time", "source_app", "extended_minutes"],
+				as_dict=True,
+			)
+			if section:
+				card["section_source_app"] = section.source_app
+				card["section_extended_minutes"] = section.extended_minutes
+				if section.target_end_time:
+					card["section_remaining_minutes"] = int(
+						time_diff_in_seconds(section.target_end_time, now) // 60
+					)
 
 		if row.current_session:
 			session = frappe.db.get_value(
@@ -52,6 +76,9 @@ def get_dashboard_data():
 					"status",
 					"extended_minutes",
 					"blocked_reason",
+					"source_app",
+					"reference_doctype",
+					"reference_name",
 				],
 				as_dict=True,
 			)
@@ -62,11 +89,22 @@ def get_dashboard_data():
 				card["session_status"] = session.status
 				card["extended_minutes"] = session.extended_minutes
 				card["blocked_reason"] = session.blocked_reason
+				card["source_app"] = session.source_app
+				card["reference_doctype"] = session.reference_doctype
+				card["reference_name"] = session.reference_name
 				if session.target_end_time:
 					card["remaining_minutes"] = int(
 						time_diff_in_seconds(session.target_end_time, now) // 60
 					)
 
+
+		events = frappe.get_all(
+			"Employee Work Log",
+			filters={"employee": row.employee, "event_time": [">=", f"{today()} 00:00:00"]},
+			fields=["event_type", "count(name) as event_count"],
+			group_by="event_type",
+		)
+		card["today_counts"] = {event.event_type: event.event_count for event in events}
 		cards.append(card)
 
 	cards.sort(key=lambda c: (STATUS_ORDER.get(c["status"], 9), c["employee_name"]))

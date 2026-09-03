@@ -8,6 +8,8 @@
   "employee_name",
   "status",
   "status_since",
+  "current_section",
+  "current_section_session",
   "column_break_1",
   "current_session",
   "idle_since",
@@ -44,6 +46,19 @@
    "fieldname": "status_since",
    "fieldtype": "Datetime",
    "label": "Status Since"
+  },
+  {
+   "fieldname": "current_section",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Current Section",
+   "options": "Work Section Master"
+  },
+  {
+   "fieldname": "current_section_session",
+   "fieldtype": "Link",
+   "label": "Current Section Session",
+   "options": "Employee Section Session"
   },
   {
    "fieldname": "column_break_1",

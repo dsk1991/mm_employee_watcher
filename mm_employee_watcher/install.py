@@ -7,6 +7,22 @@ APP_ROLES = (
 	("Employee Watcher Viewer", 1),
 )
 
+DEFAULT_SECTIONS = (
+	("Sales Office", "Work", 120),
+	("Sales Warehouse", "Work", 120),
+	("Break", "Break", 30),
+)
+
+DEFAULT_ACTIVITIES = (
+	("Sales Invoice Creation", "Sales Office", 60),
+	("Payment Entry", "Sales Office", 45),
+	("Report Viewing", "Sales Office", 30),
+	("Picking", "Sales Warehouse", 60),
+	("Putaway", "Sales Warehouse", 60),
+	("Stock Counting", "Sales Warehouse", 60),
+	("Packing", "Sales Warehouse", 60),
+)
+
 
 def before_install():
 	create_app_roles()
@@ -28,6 +44,7 @@ def after_migrate():
 def setup_required_records():
 	create_user_tracking_field()
 	create_app_roles()
+	create_default_sections_and_activities()
 
 
 def create_user_tracking_field():
@@ -66,6 +83,38 @@ def create_app_roles():
 				"desk_access": desk_access,
 			}
 		).insert(ignore_permissions=True)
+
+
+def create_default_sections_and_activities():
+	"""Provide useful defaults without overwriting a site's own masters."""
+	for section_name, section_type, duration in DEFAULT_SECTIONS:
+		if frappe.db.exists("Work Section Master", section_name):
+			continue
+		frappe.get_doc(
+			{
+				"doctype": "Work Section Master",
+				"section_name": section_name,
+				"section_type": section_type,
+				"default_duration_minutes": duration,
+				"enabled": 1,
+			}
+		).insert(ignore_permissions=True)
+
+	for activity_name, work_section, duration in DEFAULT_ACTIVITIES:
+		if not frappe.db.exists("Work Activity Master", activity_name):
+			frappe.get_doc(
+				{
+					"doctype": "Work Activity Master",
+					"activity_name": activity_name,
+					"work_section": work_section,
+					"default_duration_minutes": duration,
+				}
+			).insert(ignore_permissions=True)
+			continue
+		if not frappe.db.get_value("Work Activity Master", activity_name, "work_section"):
+			frappe.db.set_value(
+				"Work Activity Master", activity_name, "work_section", work_section
+			)
 
 
 def run_if_not_already_installed():

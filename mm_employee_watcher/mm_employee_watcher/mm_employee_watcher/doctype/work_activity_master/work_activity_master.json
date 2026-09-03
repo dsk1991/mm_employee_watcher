@@ -6,6 +6,7 @@
  "engine": "InnoDB",
  "field_order": [
   "activity_name",
+  "work_section",
   "department",
   "default_duration_minutes",
   "allow_extend",
@@ -23,6 +24,13 @@
    "label": "Activity Name",
    "reqd": 1,
    "unique": 1
+  },
+  {
+   "fieldname": "work_section",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Default Work Section",
+   "options": "Work Section Master"
   },
   {
    "fieldname": "department",
