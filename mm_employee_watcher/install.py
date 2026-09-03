@@ -23,6 +23,17 @@ DEFAULT_ACTIVITIES = (
 	("Packing", "Sales Warehouse", 60),
 )
 
+TRACKED_DOCTYPES = {
+	"Work Section Master": "work_section_master",
+	"Work Activity Master": "work_activity_master",
+	"Employee Work Session": "employee_work_session",
+	"Employee Work Log": "employee_work_log",
+	"Employee Work Queue": "employee_work_queue",
+	"Employee Current Status": "employee_current_status",
+	"Employee Section Session": "employee_section_session",
+	"Employee Section Schedule": "employee_section_schedule",
+}
+
 
 def before_install():
 	create_app_roles()
@@ -38,7 +49,35 @@ def after_install():
 
 def after_migrate():
 	"""Keep upgrades idempotent for sites that installed an older release."""
+	repair_doctype_modules()
 	setup_required_records()
+
+
+def repair_doctype_modules():
+	"""Fix stale DocType module metadata that can break controller import on upgrade.
+
+	Older installs may keep legacy module values like
+	`frappe.core.doctype.work_section_master`; this forces the module back to
+	this app so migration can complete and default records can be seeded.
+	"""
+	target_module = "mm_employee_watcher"
+
+	for doctype_name, doctype_module in TRACKED_DOCTYPES.items():
+		if not frappe.db.exists("DocType", doctype_name):
+			continue
+		existing_module = frappe.db.get_value("DocType", doctype_name, "module")
+		if existing_module == target_module:
+			continue
+
+		frappe.db.set_value("DocType", doctype_name, "module", target_module)
+		try:
+			frappe.reload_doc("mm_employee_watcher", "doctype", doctype_module, force=True)
+		except Exception:
+			# If reload fails temporarily (for example in a partially patched setup),
+			# continue with setup for best effort; doctype metadata was already fixed.
+			pass
+
+	frappe.clear_cache()
 
 
 def setup_required_records():
