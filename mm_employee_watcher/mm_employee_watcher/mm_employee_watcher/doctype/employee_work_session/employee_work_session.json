@@ -13,10 +13,12 @@
   "source_app",
   "reference_doctype",
   "reference_name",
+  "queue_item",
   "section_break_1",
   "start_time",
   "target_end_time",
   "actual_end_time",
+  "expiry_notified_at",
   "extended_minutes",
   "column_break_2",
   "target_qty",
@@ -33,7 +35,8 @@
    "in_standard_filter": 1,
    "label": "Employee",
    "options": "Employee",
-   "reqd": 1
+   "reqd": 1,
+   "search_index": 1
   },
   {
    "fetch_from": "employee.employee_name",
@@ -65,8 +68,9 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
-   "options": "Active\nExtended\nBlocked\nCompleted\nCancelled",
-   "reqd": 1
+   "options": "Active\nExtended\nPaused\nBlocked\nCompleted\nCancelled",
+   "reqd": 1,
+   "search_index": 1
   },
   {
    "fieldname": "column_break_1",
@@ -92,6 +96,13 @@
    "options": "reference_doctype"
   },
   {
+   "fieldname": "queue_item",
+   "fieldtype": "Link",
+   "label": "Work Queue Item",
+   "options": "Employee Work Queue",
+   "read_only": 1
+  },
+  {
    "fieldname": "section_break_1",
    "fieldtype": "Section Break",
    "label": "Timing"
@@ -106,12 +117,20 @@
    "fieldname": "target_end_time",
    "fieldtype": "Datetime",
    "in_list_view": 1,
-   "label": "Target End Time"
+   "label": "Target End Time",
+   "search_index": 1
   },
   {
    "fieldname": "actual_end_time",
    "fieldtype": "Datetime",
    "label": "Actual End Time"
+  },
+  {
+   "fieldname": "expiry_notified_at",
+   "fieldtype": "Datetime",
+   "hidden": 1,
+   "label": "Expiry Notified At",
+   "read_only": 1
   },
   {
    "default": "0",
@@ -174,10 +193,10 @@
    "write": 1
   },
   {
-   "create": 1,
+   "export": 1,
    "read": 1,
-   "role": "Employee",
-   "write": 1
+   "report": 1,
+   "role": "Employee Watcher Manager"
   }
  ],
  "sort_field": "modified",

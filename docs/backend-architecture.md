@@ -96,7 +96,8 @@ A small persistent bar, identical everywhere the employee is logged in:
 - WMS — same bar.
 - Android HHT app — same bar.
 
-All of these read from one endpoint: `GET /api/method/.../my_current_work`.
+All of these read from one endpoint:
+`GET /api/method/mm_employee_watcher.api.get_my_status`.
 Since Frappe DocTypes expose REST out of the box, and custom whitelisted
 methods are trivial to add, every client (including the Android app) can
 hit the same central backend rather than each maintaining its own state.
@@ -112,6 +113,11 @@ hit the same central backend rather than each maintaining its own state.
 - `get_my_status`
 - `get_next_work`
 - `heartbeat`
+- `start_reference_work` (idempotent WMS/HHT start)
+- `update_progress` (absolute completed quantity)
+- `complete_reference_work` (idempotent WMS/HHT completion)
+
+See [`wms-integration.md`](wms-integration.md) for the Android call sequence.
 
 ## 6. Office / Supervisor dashboard
 
@@ -145,8 +151,9 @@ how much time is left, and who's sitting idle.
    corrupts productivity and idle-time math. The backend must enforce
    this — starting a new primary session should require closing/pausing
    any existing one, not just be a UI convention.
-2. **Tracker only runs after attendance check-in.** No session can start
-   before the employee is marked present.
+2. **Planned rule: tracker only runs after attendance check-in.** This rule
+   needs HRMS shift/attendance policy configuration and is not enforced by
+   the current release; do not claim attendance-gated tracking yet.
 3. **Authorized Lunch/Tea Break → `BREAK`, never `IDLE`.** These are
    distinct states with different reporting semantics.
 4. **After checkout → `OFF DUTY`**, a distinct state from all of the above.

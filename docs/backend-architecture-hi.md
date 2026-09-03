@@ -97,7 +97,8 @@ Generic काम जिसका कोई source document नहीं है 
 - WMS — same bar।
 - Android HHT app — same bar।
 
-ये सब एक ही endpoint से data लेंगे: `GET /api/method/.../my_current_work`।
+ये सब एक ही endpoint से data लेंगे:
+`GET /api/method/mm_employee_watcher.api.get_my_status`।
 Frappe DocTypes खुद-ब-खुद REST APIs expose करते हैं, और custom whitelisted
 methods add करना आसान है — इसलिए Android/WMS सहित हर client इसी central
 backend को use कर सकता है।
@@ -113,6 +114,11 @@ backend को use कर सकता है।
 - `get_my_status`
 - `get_next_work`
 - `heartbeat`
+- `start_reference_work` (idempotent WMS/HHT start)
+- `update_progress` (absolute completed quantity)
+- `complete_reference_work` (idempotent WMS/HHT completion)
+
+Android call sequence के लिए [`wms-integration.md`](wms-integration.md) देखें।
 
 ## 6. Office / Supervisor dashboard
 
@@ -146,8 +152,9 @@ output हुआ, कितना time बचा है, और कौन बि
    productivity और idle-time calculation बिगड़ जाता है। ये backend में
    enforce होना चाहिए — नया primary session शुरू करने से पहले पुराना
    session close/pause होना ज़रूरी हो, सिर्फ UI convention न हो।
-2. **Attendance check-in के बाद ही tracker active हो।** Employee present
-   mark होने से पहले कोई session शुरू नहीं हो सकता।
+2. **Planned rule: Attendance check-in के बाद ही tracker active हो।** इसके
+   लिए HRMS shift/attendance policy configuration चाहिए और current release
+   अभी इसे enforce नहीं करता; अभी attendance-gated tracking claim न करें।
 3. **Authorized Lunch/Tea Break → `BREAK`, कभी `IDLE` नहीं।** ये दोनों
    states अलग-अलग हैं और reporting में अलग matter करती हैं।
 4. **Checkout के बाद → `OFF DUTY`**, बाकी सब states से अलग।

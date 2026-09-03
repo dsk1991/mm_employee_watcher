@@ -64,7 +64,8 @@
   {
    "fieldname": "last_heartbeat",
    "fieldtype": "Datetime",
-   "label": "Last Heartbeat"
+   "label": "Last Heartbeat",
+   "search_index": 1
   }
  ],
  "index_web_pages_for_search": 1,
@@ -90,8 +91,10 @@
    "write": 1
   },
   {
+   "export": 1,
    "read": 1,
-   "role": "Employee"
+   "report": 1,
+   "role": "Employee Watcher Manager"
   }
  ],
  "sort_field": "modified",

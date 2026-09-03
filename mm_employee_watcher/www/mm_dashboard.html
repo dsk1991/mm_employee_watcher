@@ -209,7 +209,7 @@ function render(data) {
 		if (c.status === "WORKING" || c.status === "BLOCKED") {
 			if (c.remaining_minutes !== undefined) {
 				if (c.remaining_minutes < 0) {
-					footBits.push('<span class="over">Overdue ' + fmtMinutes(c.remaining_minutes) + "</span>");
+					footBits.push('<span class="over">Overdue ' + fmtMinutes(-c.remaining_minutes) + "</span>");
 				} else if (c.remaining_minutes <= 10) {
 					footBits.push('<span class="warn">' + fmtMinutes(c.remaining_minutes) + " left</span>");
 				} else {

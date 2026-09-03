@@ -1,13 +1,13 @@
 """Scheduled jobs registered in hooks.py.
 
-check_expired_sessions   -> the "2:00 PM" flow: server-side state change +
-                             frappe.publish_realtime, every minute.
+check_expired_sessions   -> the "2:00 PM" flow: one-shot realtime alert for
+                             each target time, every minute.
 check_offline_employees  -> heartbeat watchdog: a dropped connection/closed
                              app becomes OFFLINE, never silently IDLE.
 """
 
 import frappe
-from frappe.utils import now_datetime
+from frappe.utils import now_datetime, get_datetime
 
 from mm_employee_watcher.utils import (
 	STATUS_IDLE,
@@ -40,6 +40,7 @@ def check_expired_sessions():
 		filters={
 			"status": ["in", [SESSION_ACTIVE, SESSION_EXTENDED]],
 			"target_end_time": ["<", now_datetime()],
+			"expiry_notified_at": ["is", "not set"],
 		},
 		fields=["name", "employee", "work_activity", "target_qty", "completed_qty", "target_end_time"],
 	)
@@ -64,6 +65,13 @@ def check_expired_sessions():
 			event="mm_employee_watcher:dashboard_update",
 			message={"employee": session.employee, "work_session": session.name, "overdue": True},
 		)
+		frappe.db.set_value(
+			"Employee Work Session",
+			session.name,
+			"expiry_notified_at",
+			now_datetime(),
+			update_modified=False,
+		)
 
 
 def check_offline_employees():
@@ -76,12 +84,14 @@ def check_offline_employees():
 		"Employee Current Status",
 		filters={
 			"status": ["in", [STATUS_WORKING, STATUS_IDLE, STATUS_BLOCKED]],
-			"last_heartbeat": ["<", cutoff],
 		},
-		fields=["employee", "current_session"],
+		fields=["employee", "current_session", "last_heartbeat", "status_since"],
 	)
 
 	for row in stale:
+		last_seen = row.last_heartbeat or row.status_since
+		if not last_seen or get_datetime(last_seen) >= get_datetime(cutoff):
+			continue
 		if not is_tracking_enabled(row.employee):
 			continue
 		if row.current_session:

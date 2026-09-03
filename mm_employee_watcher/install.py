@@ -2,9 +2,32 @@
 
 import frappe
 
+APP_ROLES = (
+	("Employee Watcher Manager", 1),
+	("Employee Watcher Viewer", 1),
+)
+
+
+def before_install():
+	create_app_roles()
+
+
+def before_migrate():
+	create_app_roles()
+
 
 def after_install():
+	setup_required_records()
+
+
+def after_migrate():
+	"""Keep upgrades idempotent for sites that installed an older release."""
+	setup_required_records()
+
+
+def setup_required_records():
 	create_user_tracking_field()
+	create_app_roles()
 
 
 def create_user_tracking_field():
@@ -32,8 +55,21 @@ def create_user_tracking_field():
 	).insert(ignore_permissions=True)
 
 
+def create_app_roles():
+	for role_name, desk_access in APP_ROLES:
+		if frappe.db.exists("Role", role_name):
+			continue
+		frappe.get_doc(
+			{
+				"doctype": "Role",
+				"role_name": role_name,
+				"desk_access": desk_access,
+			}
+		).insert(ignore_permissions=True)
+
+
 def run_if_not_already_installed():
 	"""For an app that was installed before this hook existed — run once
 	by hand: `bench --site your-site execute
 	mm_employee_watcher.install.run_if_not_already_installed`"""
-	create_user_tracking_field()
+	setup_required_records()

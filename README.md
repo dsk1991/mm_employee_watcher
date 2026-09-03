@@ -6,10 +6,8 @@ shared backend that tracks what every employee is doing right now
 Android HHT, and any other client, through one set of DocTypes and
 whitelisted APIs.
 
-> Requires the **`hrms`** app to be installed (Employee/Attendance moved
-> out of `erpnext` into a separate HR app from v14 onward). If your bench
-> still keeps Employee inside `erpnext`, edit `required_apps` in
-> `hooks.py` accordingly.
+Requires **ERPNext v16**. HRMS is optional in this release; it will become a
+required dependency only when attendance gating/reporting is implemented.
 
 See [`docs/backend-architecture.md`](docs/backend-architecture.md) (English)
 and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
@@ -22,7 +20,15 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
 - Server-side rule: one Primary Active Work per employee at a time
 - Whitelisted API: `start_work`, `complete_work`, `extend_work`,
   `pause_work`, `resume_work`, `mark_blocked`, `get_my_status`,
-  `get_next_work`, `heartbeat`
+  `get_next_work`, `heartbeat`, plus WMS-safe `start_reference_work`,
+  `update_progress`, and `complete_reference_work`
+- Employee-facing mutations are ownership checked. An employee cannot pass
+  another Employee or Work Session name and write through
+  `ignore_permissions`; only System Manager or Employee Watcher Manager can
+  act on behalf of someone else.
+- Work sessions use explicit `Active → Paused/Blocked/Completed` transitions,
+  queue items close as `Completed`, and expiry alerts are emitted once per
+  target time (an extension arms the alert again).
 - Scheduled jobs: expired-session sweep (server-side "target time is up"
   → `publish_realtime`) and an offline/no-heartbeat watchdog
 - **Employee = logged-in User.** `Employee.user_id` resolves who's asking
@@ -45,6 +51,10 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
   every 30 seconds. Live cards per employee (status, current work,
   qty done/target, time left or overdue, blocked reason) plus a status
   count strip at the top. See "Wall-display dashboard" below.
+- **WMS integration contract** in
+  [`docs/wms-integration.md`](docs/wms-integration.md): foreground heartbeat,
+  one compact work bar, idempotent document start, progress sync, and final
+  completion calls.
 
 **Not yet built** (later phases from the design doc): the always-visible
 in-Desk Smart Work Bar strip, the daily productivity report, FCM push
@@ -54,13 +64,22 @@ auto-completion hooks (Packing Job, Pick List, Putaway, Job Card).
 ## Install (on a bench)
 
 ```bash
-bench get-app mm_employee_watcher /path/to/this/repo
+bench get-app --branch main https://github.com/dsk1991/mm_employee_watcher.git
 bench --site your-site install-app mm_employee_watcher
 bench build --app mm_employee_watcher   # picks up public/js/mm_watcher.js
 ```
 
-If the app was already installed before the User tracking field existed,
-run once:
+For an existing installation, update and migrate normally. The idempotent
+`after_migrate` hook creates any missing tracking field and app roles:
+
+```bash
+bench --site your-site migrate
+bench build --app mm_employee_watcher
+bench restart
+```
+
+If a previous failed deployment did not run hooks, this recovery command is
+also safe to run more than once:
 
 ```bash
 bench --site your-site execute mm_employee_watcher.install.run_if_not_already_installed
@@ -76,10 +95,9 @@ Desk page — an unauthenticated visitor is bounced to `/login`. For a TV
 that should just stay on the dashboard forever, the simplest setup is:
 
 1. Create a dedicated user, e.g. `dashboard@yourcompany.com`, with a role
-   that can read `Employee Current Status` and `Employee Work Session`
-   (both DocTypes already grant read to the `Employee` role — give this
-   user that role, or create a narrower "Dashboard Viewer" role with just
-   read on those two).
+   **Employee Watcher Viewer** role. Use **Employee Watcher Manager** for
+   supervisors who also maintain activities and work queues. Ordinary
+   Employee users cannot open the all-employee dashboard.
 2. Log in as that user once on the TV's browser and leave it signed in —
    the session cookie persists, so the TV keeps showing the dashboard
    indefinitely without anyone re-entering credentials.

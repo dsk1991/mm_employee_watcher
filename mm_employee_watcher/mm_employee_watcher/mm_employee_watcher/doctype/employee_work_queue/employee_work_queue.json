@@ -21,7 +21,8 @@
    "in_standard_filter": 1,
    "label": "Employee",
    "options": "Employee",
-   "reqd": 1
+   "reqd": 1,
+   "search_index": 1
   },
   {
    "fieldname": "work_activity",
@@ -45,8 +46,9 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
-   "options": "Pending\nAssigned\nCancelled",
-   "reqd": 1
+   "options": "Pending\nAssigned\nCompleted\nCancelled",
+   "reqd": 1,
+   "search_index": 1
   },
   {
    "fieldname": "column_break_1",
@@ -93,8 +95,13 @@
    "write": 1
   },
   {
+   "create": 1,
+   "delete": 1,
+   "export": 1,
    "read": 1,
-   "role": "Employee"
+   "report": 1,
+   "role": "Employee Watcher Manager",
+   "write": 1
   }
  ],
  "sort_field": "modified",

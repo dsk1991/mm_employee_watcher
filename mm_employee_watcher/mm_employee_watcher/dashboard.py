@@ -5,15 +5,22 @@ docs/backend-architecture.md section 6.
 """
 
 import frappe
+from frappe import _
 from frappe.utils import now_datetime, time_diff_in_seconds
+
+from mm_employee_watcher.utils import is_tracking_enabled
 
 # WORKING/BLOCKED employees are the ones a supervisor most needs to see
 # first — blocked (needs help right now) even before working.
 STATUS_ORDER = {"BLOCKED": 0, "WORKING": 1, "BREAK": 2, "IDLE": 3, "OFFLINE": 4, "OFF DUTY": 5}
+DASHBOARD_ROLES = {"System Manager", "HR Manager", "Employee Watcher Manager", "Employee Watcher Viewer"}
 
 
 @frappe.whitelist()
 def get_dashboard_data():
+	if not DASHBOARD_ROLES.intersection(frappe.get_roles()):
+		frappe.throw(_("You do not have permission to view the employee dashboard"), frappe.PermissionError)
+
 	rows = frappe.get_all(
 		"Employee Current Status",
 		fields=["employee", "employee_name", "status", "status_since", "current_session"],
@@ -22,12 +29,14 @@ def get_dashboard_data():
 	now = now_datetime()
 	cards = []
 	for row in rows:
+		if not is_tracking_enabled(row.employee):
+			continue
 		card = {
 			"employee": row.employee,
 			"employee_name": row.employee_name or row.employee,
 			"status": row.status,
 			"since_minutes": (
-				int(time_diff_in_seconds(now, row.status_since) // 60) if row.status_since else None
+				max(0, int(time_diff_in_seconds(now, row.status_since) // 60)) if row.status_since else None
 			),
 		}
 

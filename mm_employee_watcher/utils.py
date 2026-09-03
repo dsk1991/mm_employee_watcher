@@ -8,6 +8,16 @@ transitions and realtime notifications.
 import frappe
 from frappe.utils import now_datetime, add_to_date, cint
 
+from mm_employee_watcher.state_machine import (
+	OPEN_SESSION_STATUSES,
+	SESSION_ACTIVE,
+	SESSION_BLOCKED,
+	SESSION_CANCELLED,
+	SESSION_COMPLETED,
+	SESSION_EXTENDED,
+	SESSION_PAUSED,
+)
+
 TRACKING_FIELD = "mm_tracking_enabled"
 
 STATUS_WORKING = "WORKING"
@@ -16,12 +26,6 @@ STATUS_BREAK = "BREAK"
 STATUS_BLOCKED = "BLOCKED"
 STATUS_OFFLINE = "OFFLINE"
 STATUS_OFF_DUTY = "OFF DUTY"
-
-SESSION_ACTIVE = "Active"
-SESSION_EXTENDED = "Extended"
-SESSION_BLOCKED = "Blocked"
-SESSION_COMPLETED = "Completed"
-SESSION_CANCELLED = "Cancelled"
 
 # Heartbeat older than this = employee counted OFFLINE, not IDLE.
 OFFLINE_AFTER_MINUTES = 10
@@ -50,11 +54,12 @@ def set_status(employee: str, status: str, current_session: str | None = None):
 	changed = doc.status != status or doc.current_session != current_session
 	doc.status = status
 	doc.current_session = current_session
-	doc.status_since = now_datetime() if changed else doc.status_since
-	if status == STATUS_IDLE:
+	doc.status_since = now_datetime() if changed or not doc.status_since else doc.status_since
+	if status == STATUS_IDLE and (changed or not doc.idle_since):
 		doc.idle_since = now_datetime()
 	else:
-		doc.idle_since = None
+		if status != STATUS_IDLE:
+			doc.idle_since = None
 	doc.save(ignore_permissions=True)
 
 	publish_status(employee, doc)
@@ -114,7 +119,7 @@ def get_active_session(employee: str):
 		{
 			"employee": employee,
 			"is_primary": 1,
-			"status": ["in", [SESSION_ACTIVE, SESSION_EXTENDED, SESSION_BLOCKED]],
+			"status": ["in", list(OPEN_SESSION_STATUSES)],
 		},
 	)
 	return frappe.get_doc("Employee Work Session", name) if name else None
@@ -149,6 +154,8 @@ def is_tracking_enabled(employee: str) -> bool:
 	everyone, uncheck the ones who shouldn't be'."""
 	user = get_user_for_employee(employee)
 	if not user:
+		return True
+	if not frappe.db.has_column("User", TRACKING_FIELD):
 		return True
 	value = frappe.db.get_value("User", user, TRACKING_FIELD)
 	if value is None:

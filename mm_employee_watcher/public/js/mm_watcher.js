@@ -25,6 +25,7 @@ mm_employee_watcher.init = function () {
 	// Keep the offline watchdog honest: this Desk tab counts as "alive"
 	// only while it's actually open.
 	setInterval(function () {
+		if (!mm_employee_watcher._tracking_active) return;
 		frappe.call({
 			method: "mm_employee_watcher.api.heartbeat",
 			// silent — no need to spam the console every 4 minutes
@@ -38,10 +39,21 @@ mm_employee_watcher.check_status = function () {
 		method: "mm_employee_watcher.api.get_my_status",
 		callback: function (r) {
 			var status = r.message;
-			if (!status || !status.employee) return; // no Employee linked to this user
-			if (status.tracking === false) return; // requirement #4: tracking off for this user
+			if (!status || !status.employee || status.tracking === false) {
+				mm_employee_watcher._tracking_active = false;
+				return;
+			}
+			mm_employee_watcher._tracking_active = true;
 
-			if (status.status === "IDLE" && !status.current_session) {
+			if (status.expired && status.session) {
+				mm_employee_watcher.show_expiry_dialog({
+					work_session: status.session.name,
+					work_activity: status.session.work_activity,
+					target_qty: status.session.target_qty,
+					completed_qty: status.session.completed_qty,
+					target_end_time: status.session.target_end_time,
+				});
+			} else if (status.status === "IDLE" && !status.current_session) {
 				mm_employee_watcher.show_work_now_dialog();
 			}
 		},
@@ -100,6 +112,7 @@ mm_employee_watcher.show_work_now_dialog = function (suggestion) {
 						work_activity: values.work_activity,
 						target_qty: values.target_qty,
 						target_minutes: values.duration_minutes,
+						description: values.description,
 						reference_doctype: suggestion ? suggestion.reference_doctype : null,
 						reference_name: suggestion ? suggestion.reference_name : null,
 					},
@@ -131,6 +144,10 @@ mm_employee_watcher.show_work_now_dialog = function (suggestion) {
 // Fires when the server's expiry sweep finds this employee's active
 // session past its target time. Employee picks Done / Extend / Blocked.
 mm_employee_watcher.show_expiry_dialog = function (data) {
+	if (!data || !data.work_session) return;
+	if (mm_employee_watcher._expiry_session === data.work_session) return;
+	mm_employee_watcher._expiry_session = data.work_session;
+
 	var d = new frappe.ui.Dialog({
 		title: __("Time's up: {0}", [data.work_activity]),
 		fields: [
@@ -201,6 +218,11 @@ mm_employee_watcher.show_expiry_dialog = function (data) {
 								indicator: "green",
 							});
 						} else {
+							if (res.auto_start_failed) {
+								frappe.msgprint(
+									__("Work completed, but the next queue item could not start. Please ask a supervisor to check it.")
+								);
+							}
 							// Nothing queued — let them pick manually (requirement #3).
 							mm_employee_watcher.show_work_now_dialog(res.next_work);
 						}
@@ -209,5 +231,8 @@ mm_employee_watcher.show_expiry_dialog = function (data) {
 			}
 		},
 	});
+	d.onhide = function () {
+		mm_employee_watcher._expiry_session = null;
+	};
 	d.show();
 };

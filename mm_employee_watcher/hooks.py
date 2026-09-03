@@ -5,11 +5,9 @@ app_description = "Smart Employee Work Watcher — real-time employee work state
 app_email = "dileepsinghkheechee@gmail.com"
 app_license = "MIT"
 
-# Built for ERPNext v16 / Frappe Framework v16. Employee/User live in the
-# "hrms" app (HR was split out of erpnext from v14 onward) — if your bench
-# still keeps Employee inside "erpnext" instead, drop "hrms" below and add
-# "erpnext" instead.
-required_apps = ["frappe", "hrms"]
+# Employee is provided by ERPNext. HRMS remains optional until attendance
+# gating/reporting is enabled in a future release.
+required_apps = ["frappe", "erpnext"]
 
 # Includes in <head>
 # ------------------
@@ -25,7 +23,10 @@ app_include_js = "/assets/mm_employee_watcher/js/mm_watcher.js"
 # (requirement #4) — a Custom Field, not a core field, so it survives
 # framework upgrades.
 
+before_install = "mm_employee_watcher.install.before_install"
+before_migrate = "mm_employee_watcher.install.before_migrate"
 after_install = "mm_employee_watcher.install.after_install"
+after_migrate = "mm_employee_watcher.install.after_migrate"
 
 # Doc events
 # ----------
@@ -45,7 +46,7 @@ after_install = "mm_employee_watcher.install.after_install"
 
 scheduler_events = {
 	"cron": {
-		# every minute: close sessions whose target_end_time has passed
+		# every minute: notify once for sessions whose target_end_time has passed
 		"* * * * *": [
 			"mm_employee_watcher.tasks.check_expired_sessions",
 		],
