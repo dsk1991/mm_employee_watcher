@@ -132,13 +132,19 @@ mm_employee_watcher.ensure_widget = function () {
 		}
 		#mm-fab.mm-idle .mm-badge { background: #7f1d1d; color: #fff; }
 		#mm-fab .mm-badge.mm-over { background: #b91c1c; color: #fff; }
-		/* Minimized: a thin colour sliver tucked against the right edge. */
+		/* Minimized: a small pill on the right edge that still shows the timer. */
 		#mm-fab.mm-min {
-			width: 12px; height: 46px; right: 0; bottom: 26px;
-			border-radius: 8px 0 0 8px; font-size: 0; animation: none;
-			box-shadow: -2px 2px 8px rgba(0,0,0,.25);
+			width: auto; min-width: 20px; height: 24px; right: 0; bottom: 26px;
+			padding: 0 7px 0 9px; border-radius: 12px 0 0 12px;
+			font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+			animation: none; box-shadow: -2px 3px 10px rgba(0,0,0,.28);
 		}
-		#mm-fab.mm-min .mm-badge { display: none; }
+		#mm-fab.mm-min .mm-badge {
+			position: static; top: auto; right: auto;
+			background: transparent; color: inherit; padding: 0; font-size: 11px;
+			border-radius: 0;
+		}
+		#mm-fab.mm-over { background: #b91c1c; }
 		@keyframes mm-pulse {
 			0% { box-shadow: 0 0 0 0 rgba(239,68,68,.55); }
 			70% { box-shadow: 0 0 0 14px rgba(239,68,68,0); }
@@ -195,8 +201,12 @@ mm_employee_watcher.set_minimized = function (min) {
 	} catch (e) {
 		/* private mode / storage blocked - state stays in memory only */
 	}
-	$("#mm-fab").toggleClass("mm-min", !!min);
 	if (min) $("#mm-fab-panel").removeClass("mm-open");
+	if (mm_employee_watcher._status) {
+		mm_employee_watcher.render_widget(mm_employee_watcher._status);
+	} else {
+		$("#mm-fab").toggleClass("mm-min", !!min);
+	}
 };
 
 mm_employee_watcher.escape = function (value) {
@@ -235,8 +245,9 @@ mm_employee_watcher.render_widget = function (status) {
 
 	var session = status.session || null;
 	var working = !!session;
+	var mini = !!mm_employee_watcher._minimized;
 	fab.toggleClass("mm-idle", !working);
-	fab.toggleClass("mm-min", !!mm_employee_watcher._minimized);
+	fab.toggleClass("mm-min", mini);
 
 	var head =
 		'<div class="mm-p-head"><span class="mm-p-title">' + __("Work Timer") + "</span>" +
@@ -244,9 +255,12 @@ mm_employee_watcher.render_widget = function (status) {
 
 	if (working) {
 		var over = mm_employee_watcher.is_overdue(session.target_end_time);
+		var clock = mm_employee_watcher.countdown(session.target_end_time);
+		fab.toggleClass("mm-over", over && mini);
 		fab.html(
-			'💼<span class="mm-badge' + (over ? " mm-over" : "") + '" data-mm-badge>' +
-			mm_employee_watcher.countdown(session.target_end_time) +
+			(mini ? "" : "💼") +
+			'<span class="mm-badge' + (over && !mini ? " mm-over" : "") + '" data-mm-badge>' +
+			clock +
 			"</span>"
 		).show();
 
@@ -268,7 +282,8 @@ mm_employee_watcher.render_widget = function (status) {
 			"</div>"
 		);
 	} else {
-		fab.html("💬").show();
+		fab.removeClass("mm-over");
+		fab.html(mini ? '<span data-mm-badge>&bull;</span>' : "💬").show();
 		panel.html(
 			head +
 			'<div class="mm-p-act">' + __("No work in progress") + "</div>" +
@@ -307,7 +322,9 @@ mm_employee_watcher.tick = function () {
 	var end = status.session.target_end_time;
 	var text = mm_employee_watcher.countdown(end);
 	var over = mm_employee_watcher.is_overdue(end);
-	$("#mm-fab [data-mm-badge]").text(text).toggleClass("mm-over", over);
+	var mini = !!mm_employee_watcher._minimized;
+	$("#mm-fab [data-mm-badge]").text(text).toggleClass("mm-over", over && !mini);
+	$("#mm-fab").toggleClass("mm-over", over && mini);
 	$("#mm-fab-panel [data-mm-panel-clock]").text(text).toggleClass("mm-over", over);
 };
 
