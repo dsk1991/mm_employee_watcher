@@ -139,6 +139,9 @@
 <div class="empty" id="empty" style="display:none;">No employees are being tracked right now.</div>
 
 <script>
+window.csrf_token = "{{ csrf_token or '' }}";
+</script>
+<script>
 var STATUS_LABEL = {
 	WORKING: "Working",
 	IDLE: "Idle",
@@ -243,21 +246,41 @@ function escapeHtml(s) {
 function fetchData() {
 	fetch("/api/method/mm_employee_watcher.dashboard.get_dashboard_data", {
 		credentials: "same-origin",
-		headers: { "X-Frappe-CSRF-Token": (window.csrf_token || "") }
+		headers: {
+			"X-Frappe-CSRF-Token": (window.csrf_token || ""),
+			"Accept": "application/json"
+		}
 	})
 		.then(function (r) {
-			if (r.status === 403 || r.redirected) {
+			var contentType = r.headers.get("content-type") || "";
+
+			// Not logged in (or session expired) usually comes back as the
+			// login page's HTML, not a 403 — catch that before trying to
+			// parse it as JSON.
+			if (!contentType.includes("application/json")) {
 				window.location.href = "/login?redirect-to=/mm_dashboard";
 				return null;
 			}
 			return r.json();
 		})
 		.then(function (r) {
-			if (r && r.message) render(r.message);
+			if (!r) return;
+			if (r.message) {
+				render(r.message);
+			} else if (r.exc || r.exception) {
+				showError("Server error — check the site's error log. " + (r.exception || ""));
+			}
 		})
 		.catch(function (e) {
 			console.error("mm_dashboard fetch failed", e);
+			showError("Could not reach the server. Retrying in 30s...");
 		});
+}
+
+function showError(msg) {
+	var empty = document.getElementById("empty");
+	empty.textContent = msg;
+	empty.style.display = "block";
 }
 
 function tickClock() {

@@ -9,3 +9,7 @@ def get_context(context):
 	if frappe.session.user == "Guest":
 		frappe.local.flags.redirect_location = "/login?redirect-to=/mm_dashboard"
 		raise frappe.Redirect
+
+	# Set explicitly (rather than relying on the page reaching into
+	# frappe.session inside Jinja) so the JS has a real CSRF token to send.
+	context.csrf_token = frappe.local.session.data.get("csrf_token", "")
