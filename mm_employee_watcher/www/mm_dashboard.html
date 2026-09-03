@@ -135,6 +135,29 @@
 		color: var(--muted);
 		font-size: 1.2rem;
 	}
+	.card { cursor: pointer; transition: transform .08s ease; }
+	.card:hover { transform: translateY(-2px); }
+	.card .hint { color: var(--muted); font-size: 0.75rem; margin-top: 10px; opacity: .7; }
+	.overlay {
+		position: fixed; inset: 0; background: rgba(0,0,0,.62);
+		display: none; z-index: 60; padding: 24px;
+	}
+	.overlay.show { display: flex; }
+	.modal {
+		background: var(--card-bg); margin: auto; width: min(920px, 96vw);
+		max-height: 88vh; overflow-y: auto; border-radius: 14px;
+		padding: 22px 26px; box-shadow: 0 20px 60px rgba(0,0,0,.55);
+	}
+	.modal .close { float: right; cursor: pointer; font-size: 1.7rem; color: var(--muted); line-height: 1; }
+	.modal h2 { margin: 0 0 4px; }
+	.modal .sub { color: var(--muted); margin-bottom: 14px; }
+	.modal .sec-title { font-size: 1rem; font-weight: 700; margin: 18px 0 6px; }
+	.modal table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+	.modal th, .modal td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #2a2f3a; vertical-align: top; }
+	.modal th { color: var(--muted); font-weight: 600; }
+	.modal .tl { font-size: .84rem; color: var(--muted); }
+	.modal .tl > div { padding: 3px 0; border-bottom: 1px solid #21252e; }
+	.modal .tl b { color: var(--text); }
 </style>
 </head>
 <body>
@@ -147,6 +170,8 @@
 <div class="counts" id="counts"></div>
 <div class="grid" id="grid"></div>
 <div class="empty" id="empty" style="display:none;">No employees are being tracked right now.</div>
+
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
 
 <script>
 window.csrf_token = "{{ csrf_token or '' }}";
@@ -199,6 +224,7 @@ function render(data) {
 	data.cards.forEach(function (c) {
 		var el = document.createElement("div");
 		el.className = "card " + cardClass(c.status);
+		el.setAttribute("data-employee", c.employee);
 
 		var html = "";
 		html += '<div class="top">';
@@ -256,10 +282,94 @@ function render(data) {
 			html += '<div class="reason">⚠ ' + escapeHtml(c.blocked_reason) + "</div>";
 		}
 
+		html += '<div class="hint">Click for full day &rsaquo;</div>';
+
 		el.innerHTML = html;
 		grid.appendChild(el);
 	});
 }
+
+var _detailEmployee = null;
+
+function fmtTime(dt) {
+	if (!dt) return "—";
+	var d = new Date(String(dt).replace(" ", "T"));
+	return isNaN(d) ? "—" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function openDetail(employee) {
+	_detailEmployee = employee;
+	var modal = document.getElementById("modal");
+	modal.innerHTML = '<span class="close" onclick="closeDetail()">&times;</span><p>Loading…</p>';
+	document.getElementById("overlay").classList.add("show");
+
+	fetch("/api/method/mm_employee_watcher.dashboard.get_employee_detail?employee=" + encodeURIComponent(employee), {
+		credentials: "same-origin",
+		headers: { "X-Frappe-CSRF-Token": (window.csrf_token || ""), "Accept": "application/json" }
+	})
+		.then(function (r) { return r.json(); })
+		.then(function (r) {
+			if (_detailEmployee !== employee) return;
+			if (r && r.message) renderDetail(r.message);
+			else modal.innerHTML = '<span class="close" onclick="closeDetail()">&times;</span><p>Could not load this employee.</p>';
+		})
+		.catch(function () {
+			modal.innerHTML = '<span class="close" onclick="closeDetail()">&times;</span><p>Could not reach the server.</p>';
+		});
+}
+
+function closeDetail() {
+	_detailEmployee = null;
+	document.getElementById("overlay").classList.remove("show");
+}
+
+function renderDetail(d) {
+	var h = '<span class="close" onclick="closeDetail()">&times;</span>';
+	h += "<h2>" + escapeHtml(d.employee_name) + "</h2>";
+	h += '<div class="sub">' + escapeHtml(STATUS_LABEL[d.status] || d.status || "") +
+		" &middot; " + fmtMinutes(d.worked_minutes) + " worked today &middot; " +
+		d.session_count + " work session" + (d.session_count === 1 ? "" : "s") + "</div>";
+
+	h += '<div class="sec-title">Work sessions</div>';
+	h += "<table><tr><th>Time</th><th>Activity</th><th>What they did</th><th>Qty</th><th>Status</th></tr>";
+	(d.sessions || []).forEach(function (s) {
+		var endTxt = s.actual_end_time ? fmtTime(s.actual_end_time) : (s.ongoing ? "now" : "—");
+		var dur = s.minutes != null ? " (" + fmtMinutes(s.minutes) + ")" : "";
+		var ref = s.reference_name
+			? '<br><span class="tl">' + escapeHtml(s.reference_doctype || "") + ": " + escapeHtml(s.reference_name) + "</span>"
+			: "";
+		h += "<tr><td>" + fmtTime(s.start_time) + " – " + endTxt + dur + "</td>" +
+			"<td>" + escapeHtml(s.work_activity || "") + "</td>" +
+			"<td>" + escapeHtml(s.description || "") + ref + "</td>" +
+			"<td>" + (s.completed_qty || 0) + (s.target_qty ? " / " + s.target_qty : "") + "</td>" +
+			"<td>" + escapeHtml(s.status || "") + "</td></tr>";
+	});
+	if (!d.sessions || !d.sessions.length) h += '<tr><td colspan="5" class="tl">No work sessions today.</td></tr>';
+	h += "</table>";
+
+	h += '<div class="sec-title">Activity log</div><div class="tl">';
+	(d.logs || []).forEach(function (l) {
+		h += "<div>" + fmtTime(l.event_time) + " — <b>" + escapeHtml(l.event_type) + "</b>" +
+			(l.reference_name ? " &middot; " + escapeHtml(l.reference_doctype || "") + " " + escapeHtml(l.reference_name) : "") +
+			(l.remarks ? " &middot; " + escapeHtml(l.remarks) : "") +
+			(l.qty ? " &middot; qty " + l.qty : "") + "</div>";
+	});
+	if (!d.logs || !d.logs.length) h += "<div>No events logged today.</div>";
+	h += "</div>";
+
+	document.getElementById("modal").innerHTML = h;
+}
+
+document.getElementById("grid").addEventListener("click", function (e) {
+	var card = e.target.closest(".card");
+	if (card && card.getAttribute("data-employee")) openDetail(card.getAttribute("data-employee"));
+});
+document.getElementById("overlay").addEventListener("click", function (e) {
+	if (e.target === this) closeDetail();
+});
+document.addEventListener("keydown", function (e) {
+	if (e.key === "Escape") closeDetail();
+});
 
 function escapeHtml(s) {
 	if (!s) return "";

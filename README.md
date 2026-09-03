@@ -50,7 +50,8 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
 - **Forced start prompt.** Opening ERPNext Desk with no active work shows a
   **"What work are you starting now?"** popup (Work, required Description,
   Duration, Target Qty). It will not close until work is started; the
-  employee can instead choose **"I'm on a break"**.
+  employee can instead choose **"I'm on a break"**. While the employee stays
+  idle the popup re-appears every 2 minutes.
 - **End-of-work prompt.** Ending work asks **"What did you do / complete?"**
   (required free text) via `end_work`, then immediately prompts for the next
   work.
@@ -68,7 +69,9 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
   inside Desk), openable by URL from any browser/TV, auto-refreshing
   every 30 seconds. Live cards per employee (status, current work,
   description, qty done/target, time left or overdue, blocked reason) plus a
-  status count strip at the top. See "Wall-display dashboard" below.
+  status count strip at the top. **Click a card** for that employee's whole
+  day — every work session (start/end, duration, what they did, qty) and the
+  full activity log. See "Wall-display dashboard" below.
 - **WMS integration contract** in
   [`docs/wms-integration.md`](docs/wms-integration.md): foreground heartbeat,
   one compact work bar, idempotent document start, progress sync, and final

@@ -24,6 +24,13 @@
   (fixes "frappe is not defined" when it was injected as a raw script), and
   can be minimized to a small edge pill that still shows the live timer
   (remembered per browser).
+- While an employee has no active work, the "Start Work" popup now re-appears
+  every 2 minutes (BREAK is left alone).
+- Every saved document an employee opens on Desk is recorded as a passive
+  `Screen Opened` log (`record_screen_view`) — no work-session change.
+- Dashboard cards are clickable: `get_employee_detail` powers a drill-down
+  showing that employee's whole day — every work session (with duration and
+  what they did) and the full activity log.
 
 ## 0.2.0 - 2026-09-03
 

@@ -76,6 +76,18 @@ mm_employee_watcher.init = function () {
 			freeze: false,
 		});
 	}, 60 * 1000);
+
+	// Nag: every 2 minutes, if the employee still has no active work, pop the
+	// "Start Work" dialog again (BREAK is left alone — they chose that).
+	setInterval(function () {
+		if (!mm_employee_watcher._tracking_active) return;
+		if (document.visibilityState !== "visible") return;
+		if (mm_employee_watcher._dialog_open) return;
+		var s = mm_employee_watcher._status;
+		if (s && !s.current_session && s.status === "IDLE") {
+			mm_employee_watcher.check_status();
+		}
+	}, 2 * 60 * 1000);
 };
 
 mm_employee_watcher.check_status = function (silent) {
@@ -688,6 +700,23 @@ mm_employee_watcher.bind_desktop_activity_tracking = function () {
 		} else if (route[0] === "query-report" || route[0] === "report-view") {
 			activity = "Report Viewing";
 			description = __("Viewed report {0}", [route[1] || ""]);
+		} else if (
+			route[0] === "Form" &&
+			route[1] &&
+			route[2] &&
+			!String(route[2]).toLowerCase().startsWith("new-")
+		) {
+			// Any other saved document the employee opens — record it as a
+			// passive audit-trail entry (no work-session change).
+			var svKey = "sv|" + route[1] + "|" + route[2];
+			if (mm_employee_watcher._last_screen_view !== svKey) {
+				mm_employee_watcher._last_screen_view = svKey;
+				frappe.call({
+					method: "mm_employee_watcher.api.record_screen_view",
+					args: { reference_doctype: route[1], reference_name: route[2] },
+					freeze: false,
+				});
+			}
 		}
 		if (!activity) return;
 		var key = [activity, referenceDoctype || "", referenceName || "", description].join("|");

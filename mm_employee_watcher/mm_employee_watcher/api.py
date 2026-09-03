@@ -22,12 +22,14 @@ extend_work = _api.extend_work
 mark_blocked = _api.mark_blocked
 mark_break = _api.mark_break
 record_document_activity = _api.record_document_activity
+record_screen_view = _api.record_screen_view
 get_next_work = _api.get_next_work
 
 __all__ = [
 	"heartbeat",
 	"get_my_status",
 	"record_desktop_activity",
+	"record_screen_view",
 	"start_work",
 	"complete_work",
 	"end_work",

@@ -143,7 +143,22 @@ class MetadataTest(unittest.TestCase):
 		self.assertIn("mm_employee_watcher.api.end_work", script)
 		self.assertIn("lock_dialog", script)
 		self.assertIn("set_minimized", script)
+		self.assertIn("2 * 60 * 1000", script)  # idle re-prompt interval
+		self.assertIn("record_screen_view", script)
 		self.assertNotIn("mm-work-bar", script)
+
+	def test_dashboard_has_employee_drilldown(self):
+		impl = (
+			ROOT / "mm_employee_watcher" / "mm_employee_watcher" / "dashboard.py"
+		).read_text(encoding="utf-8")
+		self.assertIn("def get_employee_detail", impl)
+		shim = (ROOT / "mm_employee_watcher" / "dashboard.py").read_text(encoding="utf-8")
+		self.assertIn("get_employee_detail", shim)
+		page = (ROOT / "mm_employee_watcher" / "www" / "mm_dashboard.html").read_text(encoding="utf-8")
+		self.assertIn("get_employee_detail", page)
+		self.assertIn("openDetail", page)
+		api = (ROOT / "mm_employee_watcher" / "api.py").read_text(encoding="utf-8")
+		self.assertIn("def record_screen_view", api)
 
 	def test_migration_patch_registered(self):
 		patches = (ROOT / "mm_employee_watcher" / "patches.txt").read_text(encoding="utf-8")

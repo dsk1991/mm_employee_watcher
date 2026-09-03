@@ -7,7 +7,7 @@ read/write exactly the same state. See docs/backend-architecture.md section 5.
 
 import frappe
 from frappe import _
-from frappe.utils import now_datetime, add_to_date, flt, cint, get_datetime
+from frappe.utils import now_datetime, add_to_date, flt, cint, get_datetime, today
 
 from mm_employee_watcher.utils import (
 	STATUS_WORKING,
@@ -509,6 +509,47 @@ def mark_break(employee: str | None = None, reason: str | None = None):
 	elif session and session.status == SESSION_BLOCKED:
 		frappe.throw(_("Resolve or complete the blocked work before starting a break"))
 	set_status(employee, STATUS_BREAK, session.name if session else None)
+	return {"ok": True}
+
+
+@frappe.whitelist()
+def record_screen_view(reference_doctype: str, reference_name: str):
+	"""Passive audit trail: the employee opened a saved document on Desk.
+
+	Only writes an Employee Work Log row (tied to the current work session if
+	one is open). It never creates or switches a work session — this is for
+	the 'what did they actually touch today' view, not the work timer.
+	"""
+	employee = get_employee_for_user()
+	if not employee or not is_tracking_enabled(employee):
+		return {"tracking": False}
+	if not frappe.db.exists(reference_doctype, reference_name):
+		return {"ok": False}
+
+	today_start = get_datetime(today())
+	already = frappe.db.exists(
+		"Employee Work Log",
+		{
+			"employee": employee,
+			"event_type": "Screen Opened",
+			"reference_doctype": reference_doctype,
+			"reference_name": reference_name,
+			"event_time": [">=", today_start],
+		},
+	)
+	if already:
+		return {"ok": True, "duplicate": True}
+
+	work = get_active_session(employee)
+	log_event(
+		employee,
+		work.name if work else None,
+		"Screen Opened",
+		remarks=_("Opened {0} {1}").format(reference_doctype, reference_name),
+		source_app="ERPNext",
+		reference_doctype=reference_doctype,
+		reference_name=reference_name,
+	)
 	return {"ok": True}
 
 

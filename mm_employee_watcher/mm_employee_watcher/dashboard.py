@@ -16,10 +16,14 @@ STATUS_ORDER = {"BLOCKED": 0, "WORKING": 1, "BREAK": 2, "IDLE": 3, "OFFLINE": 4,
 DASHBOARD_ROLES = {"System Manager", "HR Manager", "Employee Watcher Manager", "Employee Watcher Viewer"}
 
 
-@frappe.whitelist()
-def get_dashboard_data():
+def _check_dashboard_permission():
 	if not DASHBOARD_ROLES.intersection(frappe.get_roles()):
 		frappe.throw(_("You do not have permission to view the employee dashboard"), frappe.PermissionError)
+
+
+@frappe.whitelist()
+def get_dashboard_data():
+	_check_dashboard_permission()
 
 	rows = frappe.get_all(
 		"Employee Current Status",
@@ -106,3 +110,85 @@ def get_dashboard_data():
 		counts[c["status"]] = counts.get(c["status"], 0) + 1
 
 	return {"generated_at": now, "cards": cards, "counts": counts}
+
+
+@frappe.whitelist()
+def get_employee_detail(employee: str, day: str | None = None):
+	"""Everything one employee did on `day` (default: today) — every work
+	session and every logged event — for the dashboard drill-down."""
+	_check_dashboard_permission()
+
+	day = day or today()
+	start = f"{day} 00:00:00"
+	end = f"{day} 23:59:59"
+	now = now_datetime()
+
+	status = frappe.db.get_value(
+		"Employee Current Status",
+		{"employee": employee},
+		["employee_name", "status", "status_since", "current_session"],
+		as_dict=True,
+	) or {}
+
+	ongoing_states = ("Active", "Extended", "Paused", "Blocked")
+	sessions = frappe.get_all(
+		"Employee Work Session",
+		filters={"employee": employee, "start_time": ["between", [start, end]]},
+		fields=[
+			"name",
+			"work_activity",
+			"notes",
+			"status",
+			"start_time",
+			"actual_end_time",
+			"target_end_time",
+			"target_qty",
+			"completed_qty",
+			"extended_minutes",
+			"source_app",
+			"reference_doctype",
+			"reference_name",
+		],
+		order_by="start_time asc",
+	)
+
+	worked_seconds = 0
+	for s in sessions:
+		s["description"] = s.pop("notes", None)
+		s["ongoing"] = s.status in ongoing_states
+		finished = s.actual_end_time or (now if s["ongoing"] else None)
+		if s.start_time and finished:
+			secs = max(0, time_diff_in_seconds(finished, s.start_time))
+			s["minutes"] = int(secs // 60)
+			worked_seconds += secs
+		else:
+			s["minutes"] = None
+
+	logs = frappe.get_all(
+		"Employee Work Log",
+		filters={"employee": employee, "event_time": ["between", [start, end]]},
+		fields=[
+			"event_type",
+			"event_time",
+			"work_session",
+			"source_app",
+			"reference_doctype",
+			"reference_name",
+			"qty",
+			"remarks",
+		],
+		order_by="event_time desc",
+		limit=400,
+	)
+
+	return {
+		"employee": employee,
+		"employee_name": status.get("employee_name") or employee,
+		"status": status.get("status"),
+		"status_since": status.get("status_since"),
+		"day": day,
+		"worked_minutes": int(worked_seconds // 60),
+		"session_count": len(sessions),
+		"sessions": sessions,
+		"logs": logs,
+	}
