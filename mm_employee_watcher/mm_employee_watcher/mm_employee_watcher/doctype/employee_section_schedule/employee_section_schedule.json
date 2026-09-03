@@ -90,7 +90,7 @@
   }
  ],
  "links": [],
- "module": "MM Employee Watcher",
+ "module": "mm_employee_watcher",
  "name": "Employee Section Schedule",
  "naming_rule": "Expression (old style)",
  "autoname": "ESSCH-.#####",
