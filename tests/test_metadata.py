@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DOCTYPE_ROOT = ROOT / "mm_employee_watcher" / "mm_employee_watcher" / "mm_employee_watcher" / "doctype"
+DOCTYPE_ROOT = ROOT / "mm_employee_watcher" / "mm_employee_watcher" / "doctype"
 
 
 def load_doctype(folder, filename):
@@ -18,7 +18,8 @@ class MetadataTest(unittest.TestCase):
 		self.assertTrue(files)
 		for path in files:
 			with self.subTest(path=path):
-				json.loads(path.read_text(encoding="utf-8"))
+				data = json.loads(path.read_text(encoding="utf-8"))
+				self.assertEqual(data["module"], "MM Employee Watcher")
 
 	def test_session_has_pause_expiry_and_queue_fields(self):
 		data = load_doctype("employee_work_session", "employee_work_session.json")

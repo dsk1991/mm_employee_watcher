@@ -34,4 +34,3 @@ class EmployeeSectionSchedule(Document):
 		)
 		if overlaps:
 			frappe.throw(_("This employee already has an overlapping section schedule ({0})").format(overlaps[0]))
-

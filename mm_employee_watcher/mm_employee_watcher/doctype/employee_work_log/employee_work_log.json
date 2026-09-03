@@ -101,7 +101,7 @@
  "links": [],
  "modified": "2026-09-03 00:00:00.000000",
  "modified_by": "Administrator",
- "module": "mm_employee_watcher",
+ "module": "MM Employee Watcher",
  "name": "Employee Work Log",
  "naming_rule": "Expression (old style)",
  "autoname": "EWL-.#####",

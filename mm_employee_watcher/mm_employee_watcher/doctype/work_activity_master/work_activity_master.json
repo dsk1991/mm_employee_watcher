@@ -85,7 +85,7 @@
  "links": [],
  "modified": "2026-09-03 00:00:00.000000",
  "modified_by": "Administrator",
- "module": "mm_employee_watcher",
+ "module": "MM Employee Watcher",
  "name": "Work Activity Master",
  "naming_rule": "By fieldname",
  "autoname": "field:activity_name",

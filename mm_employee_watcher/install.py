@@ -40,6 +40,7 @@ def before_install():
 
 
 def before_migrate():
+	repair_doctype_modules()
 	create_app_roles()
 
 
@@ -60,9 +61,10 @@ def repair_doctype_modules():
 	`frappe.core.doctype.work_section_master`; this forces the module back to
 	this app so migration can complete and default records can be seeded.
 	"""
-	target_module = "mm_employee_watcher"
+	target_module = "MM Employee Watcher"
+	changed_doctypes = []
 
-	for doctype_name, doctype_module in TRACKED_DOCTYPES.items():
+	for doctype_name in TRACKED_DOCTYPES:
 		if not frappe.db.exists("DocType", doctype_name):
 			continue
 		existing_module = frappe.db.get_value("DocType", doctype_name, "module")
@@ -70,12 +72,21 @@ def repair_doctype_modules():
 			continue
 
 		frappe.db.set_value("DocType", doctype_name, "module", target_module)
-		try:
-			frappe.reload_doc("mm_employee_watcher", "doctype", doctype_module, force=True)
-		except Exception:
-			# If reload fails temporarily (for example in a partially patched setup),
-			# continue with setup for best effort; doctype metadata was already fixed.
-			pass
+		changed_doctypes.append(doctype_name)
+
+	# Frappe caches both DocType-to-module mappings and imported controllers for
+	# the lifetime of the migrate process. Clear those process-local caches so a
+	# DocType previously saved under Core is not imported as frappe.core.*.
+	frappe.cache.delete_value("doctype_modules")
+	if changed_doctypes:
+		from frappe.model.base_document import site_controllers
+		from frappe.modules.utils import doctype_python_modules
+
+		for doctype_name in changed_doctypes:
+			site_controllers.pop(doctype_name, None)
+			for key in tuple(doctype_python_modules):
+				if len(key) > 1 and key[1] == doctype_name:
+					doctype_python_modules.pop(key, None)
 
 	frappe.clear_cache()
 

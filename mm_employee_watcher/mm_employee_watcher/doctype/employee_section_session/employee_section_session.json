@@ -1,32 +1,24 @@
 {
  "actions": [],
- "creation": "2026-09-03 00:00:00.000000",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "employee",
   "employee_name",
   "work_section",
-  "section_session",
-  "work_activity",
-  "is_primary",
   "status",
   "column_break_1",
   "source_app",
-  "reference_doctype",
-  "reference_name",
-  "queue_item",
-  "section_break_1",
+  "schedule",
+  "section_type",
+  "timing_section",
   "start_time",
   "target_end_time",
   "actual_end_time",
   "expiry_notified_at",
-  "extended_minutes",
   "column_break_2",
-  "target_qty",
-  "completed_qty",
-  "section_break_2",
-  "blocked_reason",
+  "extended_minutes",
+  "end_reason",
   "notes"
  ],
  "fields": [
@@ -54,30 +46,8 @@
    "in_standard_filter": 1,
    "label": "Work Section",
    "options": "Work Section Master",
+   "reqd": 1,
    "search_index": 1
-  },
-  {
-   "fieldname": "section_session",
-   "fieldtype": "Link",
-   "label": "Section Session",
-   "options": "Employee Section Session",
-   "read_only": 1
-  },
-  {
-   "fieldname": "work_activity",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Work Activity",
-   "options": "Work Activity Master",
-   "reqd": 1
-  },
-  {
-   "default": "1",
-   "description": "An employee can have only one Primary Active session at a time.",
-   "fieldname": "is_primary",
-   "fieldtype": "Check",
-   "label": "Is Primary"
   },
   {
    "default": "Active",
@@ -86,7 +56,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
-   "options": "Active\nExtended\nPaused\nBlocked\nCompleted\nCancelled",
+   "options": "Active\nCompleted\nCancelled",
    "reqd": 1,
    "search_index": 1
   },
@@ -102,26 +72,21 @@
    "options": "ERPNext\nWMS\nHHT\nOther"
   },
   {
-   "fieldname": "reference_doctype",
+   "fieldname": "schedule",
    "fieldtype": "Link",
-   "label": "Reference DocType",
-   "options": "DocType"
-  },
-  {
-   "fieldname": "reference_name",
-   "fieldtype": "Dynamic Link",
-   "label": "Reference Name",
-   "options": "reference_doctype"
-  },
-  {
-   "fieldname": "queue_item",
-   "fieldtype": "Link",
-   "label": "Work Queue Item",
-   "options": "Employee Work Queue",
+   "label": "Section Schedule",
+   "options": "Employee Section Schedule",
    "read_only": 1
   },
   {
-   "fieldname": "section_break_1",
+   "fetch_from": "work_section.section_type",
+   "fieldname": "section_type",
+   "fieldtype": "Data",
+   "label": "Section Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "timing_section",
    "fieldtype": "Section Break",
    "label": "Timing"
   },
@@ -129,14 +94,15 @@
    "fieldname": "start_time",
    "fieldtype": "Datetime",
    "in_list_view": 1,
-   "label": "Start Time"
+   "label": "Start Time",
+   "reqd": 1
   },
   {
    "fieldname": "target_end_time",
    "fieldtype": "Datetime",
    "in_list_view": 1,
    "label": "Target End Time",
-   "search_index": 1
+   "reqd": 1
   },
   {
    "fieldname": "actual_end_time",
@@ -151,36 +117,19 @@
    "read_only": 1
   },
   {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
    "default": "0",
    "fieldname": "extended_minutes",
    "fieldtype": "Int",
    "label": "Extended Minutes (total)"
   },
   {
-   "fieldname": "column_break_2",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "target_qty",
-   "fieldtype": "Float",
-   "label": "Target Qty"
-  },
-  {
-   "default": "0",
-   "fieldname": "completed_qty",
-   "fieldtype": "Float",
-   "label": "Completed Qty"
-  },
-  {
-   "fieldname": "section_break_2",
-   "fieldtype": "Section Break",
-   "label": "Notes"
-  },
-  {
-   "depends_on": "eval:doc.status=='Blocked'",
-   "fieldname": "blocked_reason",
+   "fieldname": "end_reason",
    "fieldtype": "Small Text",
-   "label": "Blocked Reason"
+   "label": "End Reason"
   },
   {
    "fieldname": "notes",
@@ -188,15 +137,11 @@
    "label": "Notes"
   }
  ],
- "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-03 00:00:00.000000",
- "modified_by": "Administrator",
- "module": "mm_employee_watcher",
- "name": "Employee Work Session",
+ "module": "MM Employee Watcher",
+ "name": "Employee Section Session",
  "naming_rule": "Expression (old style)",
- "autoname": "EWS-.#####",
- "owner": "Administrator",
+ "autoname": "ESS-.#####",
  "permissions": [
   {
    "create": 1,
@@ -217,7 +162,7 @@
    "role": "Employee Watcher Manager"
   }
  ],
- "sort_field": "modified",
+ "sort_field": "creation",
  "sort_order": "DESC",
  "states": [],
  "track_changes": 1

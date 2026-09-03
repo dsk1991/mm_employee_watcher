@@ -83,7 +83,7 @@
   }
  ],
  "links": [],
- "module": "mm_employee_watcher",
+ "module": "MM Employee Watcher",
  "name": "Work Section Master",
  "naming_rule": "By fieldname",
  "autoname": "field:section_name",
