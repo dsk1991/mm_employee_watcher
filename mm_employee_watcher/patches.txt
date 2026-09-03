@@ -1,0 +1,2 @@
+# patches to be applied on `bench migrate`
+# format: module_name.patch_file

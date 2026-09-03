@@ -1,0 +1,107 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-09-03 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "activity_name",
+  "department",
+  "default_duration_minutes",
+  "allow_extend",
+  "column_break_1",
+  "requires_manual_done",
+  "is_document_linked",
+  "reference_doctype",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "activity_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Activity Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Department",
+   "options": "Department"
+  },
+  {
+   "default": "60",
+   "fieldname": "default_duration_minutes",
+   "fieldtype": "Int",
+   "label": "Default Duration (minutes)"
+  },
+  {
+   "default": "1",
+   "fieldname": "allow_extend",
+   "fieldtype": "Check",
+   "label": "Allow Extend"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "description": "Generic activities (e.g. rack cleaning, customer calling) with no source document — employee marks Done manually.",
+   "fieldname": "requires_manual_done",
+   "fieldtype": "Check",
+   "label": "Requires Manual Done"
+  },
+  {
+   "default": "0",
+   "description": "If checked, sessions of this activity are expected to be auto-completed by an integration hook when the linked document finishes (see hooks.py doc_events).",
+   "fieldname": "is_document_linked",
+   "fieldtype": "Check",
+   "label": "Is Document Linked"
+  },
+  {
+   "depends_on": "is_document_linked",
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Reference DocType",
+   "options": "DocType"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-03 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "MM Employee Watcher",
+ "name": "Work Activity Master",
+ "naming_rule": "By fieldname",
+ "autoname": "field:activity_name",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Employee"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

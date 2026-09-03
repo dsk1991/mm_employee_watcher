@@ -1,0 +1,136 @@
+"""Shared helpers used by api.py and tasks.py.
+
+Kept small and dependency-free (only frappe) so both the whitelisted API
+layer and the scheduled jobs share exactly one code path for status
+transitions and realtime notifications.
+"""
+
+import frappe
+from frappe.utils import now_datetime, add_to_date
+
+STATUS_WORKING = "WORKING"
+STATUS_IDLE = "IDLE"
+STATUS_BREAK = "BREAK"
+STATUS_BLOCKED = "BLOCKED"
+STATUS_OFFLINE = "OFFLINE"
+STATUS_OFF_DUTY = "OFF DUTY"
+
+SESSION_ACTIVE = "Active"
+SESSION_EXTENDED = "Extended"
+SESSION_BLOCKED = "Blocked"
+SESSION_COMPLETED = "Completed"
+SESSION_CANCELLED = "Cancelled"
+
+# Heartbeat older than this = employee counted OFFLINE, not IDLE.
+OFFLINE_AFTER_MINUTES = 10
+
+
+def get_or_create_status(employee: str):
+	"""Return the singleton Employee Current Status row for an employee,
+	creating an OFFLINE one if this employee has never had one before."""
+	name = frappe.db.exists("Employee Current Status", {"employee": employee})
+	if name:
+		return frappe.get_doc("Employee Current Status", name)
+
+	doc = frappe.new_doc("Employee Current Status")
+	doc.employee = employee
+	doc.status = STATUS_OFFLINE
+	doc.status_since = now_datetime()
+	doc.insert(ignore_permissions=True)
+	return doc
+
+
+def set_status(employee: str, status: str, current_session: str | None = None):
+	"""Central place that changes Employee Current Status and notifies
+	every connected client via realtime — this is what the Smart Work Bar
+	in every app listens to."""
+	doc = get_or_create_status(employee)
+	changed = doc.status != status or doc.current_session != current_session
+	doc.status = status
+	doc.current_session = current_session
+	doc.status_since = now_datetime() if changed else doc.status_since
+	if status == STATUS_IDLE:
+		doc.idle_since = now_datetime()
+	else:
+		doc.idle_since = None
+	doc.save(ignore_permissions=True)
+
+	publish_status(employee, doc)
+	return doc
+
+
+def publish_status(employee: str, status_doc=None):
+	"""Push the employee's current work state to every connected client
+	(Desk, WMS, HHT) via Socket.IO. Closed/backgrounded mobile apps won't
+	receive this — see docs/backend-architecture.md section 8 (FCM)."""
+	if status_doc is None:
+		status_doc = get_or_create_status(employee)
+
+	payload = {
+		"employee": employee,
+		"status": status_doc.status,
+		"current_session": status_doc.current_session,
+		"status_since": status_doc.status_since,
+	}
+
+	# Session-specific detail for the Smart Work Bar, if one is active.
+	if status_doc.current_session:
+		session = frappe.db.get_value(
+			"Employee Work Session",
+			status_doc.current_session,
+			[
+				"work_activity",
+				"target_qty",
+				"completed_qty",
+				"target_end_time",
+				"reference_doctype",
+				"reference_name",
+			],
+			as_dict=True,
+		)
+		if session:
+			payload.update(session)
+
+	frappe.publish_realtime(
+		event="mm_employee_watcher:status_update",
+		message=payload,
+		user=frappe.db.get_value("Employee", employee, "user_id"),
+	)
+	# Also broadcast to the supervisor dashboard room.
+	frappe.publish_realtime(
+		event="mm_employee_watcher:dashboard_update",
+		message=payload,
+	)
+
+
+def get_active_session(employee: str):
+	"""The employee's current Primary Active Work, if any. Enforces the
+	'one primary active session at a time' rule by construction: callers
+	must go through start_work() / complete this session first."""
+	name = frappe.db.exists(
+		"Employee Work Session",
+		{
+			"employee": employee,
+			"is_primary": 1,
+			"status": ["in", [SESSION_ACTIVE, SESSION_EXTENDED, SESSION_BLOCKED]],
+		},
+	)
+	return frappe.get_doc("Employee Work Session", name) if name else None
+
+
+def log_event(employee, work_session, event_type, qty=None, remarks=None):
+	frappe.get_doc(
+		{
+			"doctype": "Employee Work Log",
+			"employee": employee,
+			"work_session": work_session,
+			"event_type": event_type,
+			"event_time": now_datetime(),
+			"qty": qty,
+			"remarks": remarks,
+		}
+	).insert(ignore_permissions=True)
+
+
+def offline_cutoff():
+	return add_to_date(now_datetime(), minutes=-OFFLINE_AFTER_MINUTES)
