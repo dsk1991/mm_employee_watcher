@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MM Employee Watcher — Live Dashboard</title>
+<meta http-equiv="refresh-not-used" content="">
+<style>
+	:root {
+		--bg: #0f1115;
+		--card-bg: #1a1d24;
+		--text: #f2f3f5;
+		--muted: #9aa0ab;
+		--working: #22c55e;
+		--idle: #6b7280;
+		--break: #3b82f6;
+		--blocked: #ef4444;
+		--offline: #374151;
+	}
+	* { box-sizing: border-box; }
+	body {
+		margin: 0;
+		background: var(--bg);
+		color: var(--text);
+		font-family: "Segoe UI", Roboto, -apple-system, Arial, sans-serif;
+		min-height: 100vh;
+	}
+	header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 20px 32px;
+		border-bottom: 2px solid #262a33;
+	}
+	header h1 {
+		margin: 0;
+		font-size: 1.6rem;
+		letter-spacing: 0.5px;
+	}
+	header .clock {
+		font-size: 1.4rem;
+		color: var(--muted);
+		font-variant-numeric: tabular-nums;
+	}
+	.counts {
+		display: flex;
+		gap: 14px;
+		padding: 16px 32px 0;
+		flex-wrap: wrap;
+	}
+	.pill {
+		padding: 8px 18px;
+		border-radius: 999px;
+		font-weight: 600;
+		font-size: 1rem;
+	}
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+		gap: 18px;
+		padding: 24px 32px 40px;
+	}
+	.card {
+		background: var(--card-bg);
+		border-radius: 14px;
+		padding: 18px 20px;
+		border-left: 8px solid var(--idle);
+		box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+	}
+	.card.WORKING { border-left-color: var(--working); }
+	.card.IDLE { border-left-color: var(--idle); }
+	.card.BREAK { border-left-color: var(--break); }
+	.card.BLOCKED { border-left-color: var(--blocked); }
+	.card.OFFLINE, .card.OFFDUTY { border-left-color: var(--offline); }
+
+	.card .top {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		margin-bottom: 6px;
+	}
+	.card .name {
+		font-size: 1.25rem;
+		font-weight: 700;
+	}
+	.card .status {
+		font-size: 0.85rem;
+		font-weight: 700;
+		letter-spacing: 1px;
+		padding: 3px 10px;
+		border-radius: 6px;
+		text-transform: uppercase;
+	}
+	.card.WORKING .status { background: rgba(34,197,94,0.18); color: var(--working); }
+	.card.IDLE .status { background: rgba(107,114,128,0.25); color: #d1d5db; }
+	.card.BREAK .status { background: rgba(59,130,246,0.18); color: var(--break); }
+	.card.BLOCKED .status { background: rgba(239,68,68,0.18); color: var(--blocked); }
+	.card.OFFLINE .status, .card.OFFDUTY .status { background: rgba(55,65,81,0.4); color: var(--muted); }
+
+	.card .work {
+		font-size: 1.05rem;
+		margin: 8px 0 4px;
+	}
+	.card .qty {
+		color: var(--muted);
+		font-size: 0.95rem;
+	}
+	.card .footline {
+		margin-top: 10px;
+		font-size: 0.9rem;
+		color: var(--muted);
+		display: flex;
+		justify-content: space-between;
+	}
+	.card .footline .warn { color: #fbbf24; font-weight: 600; }
+	.card .footline .over { color: var(--blocked); font-weight: 700; }
+	.card .reason {
+		margin-top: 8px;
+		font-size: 0.9rem;
+		color: #fca5a5;
+	}
+	.empty {
+		padding: 60px 32px;
+		text-align: center;
+		color: var(--muted);
+		font-size: 1.2rem;
+	}
+</style>
+</head>
+<body>
+
+<header>
+	<h1>🟢 MM Employee Watcher</h1>
+	<div class="clock" id="clock">--:--:--</div>
+</header>
+
+<div class="counts" id="counts"></div>
+<div class="grid" id="grid"></div>
+<div class="empty" id="empty" style="display:none;">No employees are being tracked right now.</div>
+
+<script>
+var STATUS_LABEL = {
+	WORKING: "Working",
+	IDLE: "Idle",
+	BREAK: "Break",
+	BLOCKED: "Blocked",
+	OFFLINE: "Offline",
+	"OFF DUTY": "Off Duty"
+};
+
+function fmtMinutes(m) {
+	if (m === null || m === undefined) return "";
+	var sign = m < 0 ? "-" : "";
+	m = Math.abs(m);
+	var h = Math.floor(m / 60), mm = m % 60;
+	return sign + (h > 0 ? h + "h " : "") + mm + "m";
+}
+
+function cardClass(status) {
+	return (status || "").replace(" ", "");
+}
+
+function render(data) {
+	var counts = data.counts || {};
+	var countsEl = document.getElementById("counts");
+	countsEl.innerHTML = "";
+	Object.keys(STATUS_LABEL).forEach(function (key) {
+		var n = counts[key] || 0;
+		var pill = document.createElement("span");
+		pill.className = "pill card " + cardClass(key);
+		pill.style.borderLeft = "none";
+		pill.textContent = STATUS_LABEL[key] + ": " + n;
+		countsEl.appendChild(pill);
+	});
+
+	var grid = document.getElementById("grid");
+	var empty = document.getElementById("empty");
+	grid.innerHTML = "";
+
+	if (!data.cards || !data.cards.length) {
+		empty.style.display = "block";
+		return;
+	}
+	empty.style.display = "none";
+
+	data.cards.forEach(function (c) {
+		var el = document.createElement("div");
+		el.className = "card " + cardClass(c.status);
+
+		var html = "";
+		html += '<div class="top">';
+		html += '<span class="name">' + escapeHtml(c.employee_name) + "</span>";
+		html += '<span class="status">' + (STATUS_LABEL[c.status] || c.status) + "</span>";
+		html += "</div>";
+
+		if (c.work_activity) {
+			html += '<div class="work">' + escapeHtml(c.work_activity) + "</div>";
+			if (c.target_qty) {
+				html += '<div class="qty">' + (c.completed_qty || 0) + " / " + c.target_qty + " pcs</div>";
+			}
+		} else if (c.status === "IDLE") {
+			html += '<div class="work">No active work</div>';
+		}
+
+		var footBits = [];
+		if (c.status === "WORKING" || c.status === "BLOCKED") {
+			if (c.remaining_minutes !== undefined) {
+				if (c.remaining_minutes < 0) {
+					footBits.push('<span class="over">Overdue ' + fmtMinutes(c.remaining_minutes) + "</span>");
+				} else if (c.remaining_minutes <= 10) {
+					footBits.push('<span class="warn">' + fmtMinutes(c.remaining_minutes) + " left</span>");
+				} else {
+					footBits.push(fmtMinutes(c.remaining_minutes) + " left");
+				}
+			}
+			if (c.extended_minutes) {
+				footBits.push("extended " + c.extended_minutes + "m");
+			}
+		} else if (c.since_minutes !== undefined && c.since_minutes !== null) {
+			footBits.push((STATUS_LABEL[c.status] || c.status) + " " + fmtMinutes(c.since_minutes));
+		}
+
+		if (footBits.length) {
+			html += '<div class="footline"><span>' + footBits.join(" · ") + "</span></div>";
+		}
+
+		if (c.status === "BLOCKED" && c.blocked_reason) {
+			html += '<div class="reason">⚠ ' + escapeHtml(c.blocked_reason) + "</div>";
+		}
+
+		el.innerHTML = html;
+		grid.appendChild(el);
+	});
+}
+
+function escapeHtml(s) {
+	if (!s) return "";
+	return s.replace(/[&<>"']/g, function (m) {
+		return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m];
+	});
+}
+
+function fetchData() {
+	fetch("/api/method/mm_employee_watcher.mm_employee_watcher.dashboard.get_dashboard_data", {
+		credentials: "same-origin",
+		headers: { "X-Frappe-CSRF-Token": (window.csrf_token || "") }
+	})
+		.then(function (r) {
+			if (r.status === 403 || r.redirected) {
+				window.location.href = "/login?redirect-to=/mm_dashboard";
+				return null;
+			}
+			return r.json();
+		})
+		.then(function (r) {
+			if (r && r.message) render(r.message);
+		})
+		.catch(function (e) {
+			console.error("mm_dashboard fetch failed", e);
+		});
+}
+
+function tickClock() {
+	document.getElementById("clock").textContent = new Date().toLocaleTimeString();
+}
+
+tickClock();
+setInterval(tickClock, 1000);
+
+fetchData();
+setInterval(fetchData, 30000); // requirement: refresh every 30 seconds
+</script>
+
+</body>
+</html>
