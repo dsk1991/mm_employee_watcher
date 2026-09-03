@@ -35,5 +35,5 @@ def create_user_tracking_field():
 def run_if_not_already_installed():
 	"""For an app that was installed before this hook existed — run once
 	by hand: `bench --site your-site execute
-	mm_employee_watcher.mm_employee_watcher.install.run_if_not_already_installed`"""
+	mm_employee_watcher.install.run_if_not_already_installed`"""
 	create_user_tracking_field()

@@ -241,7 +241,7 @@ function escapeHtml(s) {
 }
 
 function fetchData() {
-	fetch("/api/method/mm_employee_watcher.mm_employee_watcher.dashboard.get_dashboard_data", {
+	fetch("/api/method/mm_employee_watcher.dashboard.get_dashboard_data", {
 		credentials: "same-origin",
 		headers: { "X-Frappe-CSRF-Token": (window.csrf_token || "") }
 	})

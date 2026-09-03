@@ -9,7 +9,7 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime, add_to_date, flt, cint
 
-from mm_employee_watcher.mm_employee_watcher.utils import (
+from mm_employee_watcher.utils import (
 	STATUS_WORKING,
 	STATUS_IDLE,
 	STATUS_BREAK,

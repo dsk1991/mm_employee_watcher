@@ -9,7 +9,7 @@ check_offline_employees  -> heartbeat watchdog: a dropped connection/closed
 import frappe
 from frappe.utils import now_datetime
 
-from mm_employee_watcher.mm_employee_watcher.utils import (
+from mm_employee_watcher.utils import (
 	STATUS_IDLE,
 	STATUS_OFFLINE,
 	STATUS_WORKING,

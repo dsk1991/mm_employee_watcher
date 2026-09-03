@@ -26,7 +26,7 @@ mm_employee_watcher.init = function () {
 	// only while it's actually open.
 	setInterval(function () {
 		frappe.call({
-			method: "mm_employee_watcher.mm_employee_watcher.api.heartbeat",
+			method: "mm_employee_watcher.api.heartbeat",
 			// silent — no need to spam the console every 4 minutes
 			freeze: false,
 		});
@@ -35,7 +35,7 @@ mm_employee_watcher.init = function () {
 
 mm_employee_watcher.check_status = function () {
 	frappe.call({
-		method: "mm_employee_watcher.mm_employee_watcher.api.get_my_status",
+		method: "mm_employee_watcher.api.get_my_status",
 		callback: function (r) {
 			var status = r.message;
 			if (!status || !status.employee) return; // no Employee linked to this user
@@ -95,7 +95,7 @@ mm_employee_watcher.show_work_now_dialog = function (suggestion) {
 			primary_action_label: __("Start Work"),
 			primary_action: function (values) {
 				frappe.call({
-					method: "mm_employee_watcher.mm_employee_watcher.api.start_work",
+					method: "mm_employee_watcher.api.start_work",
 					args: {
 						work_activity: values.work_activity,
 						target_qty: values.target_qty,
@@ -120,7 +120,7 @@ mm_employee_watcher.show_work_now_dialog = function (suggestion) {
 		render(suggestion);
 	} else {
 		frappe.call({
-			method: "mm_employee_watcher.mm_employee_watcher.api.get_next_work",
+			method: "mm_employee_watcher.api.get_next_work",
 			callback: function (r) {
 				render(r.message);
 			},
@@ -169,7 +169,7 @@ mm_employee_watcher.show_expiry_dialog = function (data) {
 		primary_action: function (values) {
 			if (values.blocked_reason) {
 				frappe.call({
-					method: "mm_employee_watcher.mm_employee_watcher.api.mark_blocked",
+					method: "mm_employee_watcher.api.mark_blocked",
 					args: { work_session: data.work_session, reason: values.blocked_reason },
 					callback: function () {
 						d.hide();
@@ -177,7 +177,7 @@ mm_employee_watcher.show_expiry_dialog = function (data) {
 				});
 			} else if (values.extend_minutes) {
 				frappe.call({
-					method: "mm_employee_watcher.mm_employee_watcher.api.extend_work",
+					method: "mm_employee_watcher.api.extend_work",
 					args: { work_session: data.work_session, minutes: values.extend_minutes },
 					callback: function () {
 						frappe.show_alert({
@@ -189,7 +189,7 @@ mm_employee_watcher.show_expiry_dialog = function (data) {
 				});
 			} else {
 				frappe.call({
-					method: "mm_employee_watcher.mm_employee_watcher.api.complete_work",
+					method: "mm_employee_watcher.api.complete_work",
 					args: { work_session: data.work_session, completed_qty: values.completed_qty },
 					callback: function (r) {
 						d.hide();

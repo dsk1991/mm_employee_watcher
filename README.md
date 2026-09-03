@@ -63,7 +63,7 @@ If the app was already installed before the User tracking field existed,
 run once:
 
 ```bash
-bench --site your-site execute mm_employee_watcher.mm_employee_watcher.install.run_if_not_already_installed
+bench --site your-site execute mm_employee_watcher.install.run_if_not_already_installed
 ```
 
 ## Wall-display dashboard
@@ -88,7 +88,7 @@ that should just stay on the dashboard forever, the simplest setup is:
    full-screen mode all work).
 
 The data itself comes from one whitelisted call,
-`mm_employee_watcher.mm_employee_watcher.dashboard.get_dashboard_data`,
+`mm_employee_watcher.dashboard.get_dashboard_data`,
 which the page's JS re-fetches every 30s — so the dashboard can just as
 easily be embedded in an iframe elsewhere, or polled by another tool.
 

@@ -25,7 +25,7 @@ app_include_js = "/assets/mm_employee_watcher/js/mm_watcher.js"
 # (requirement #4) — a Custom Field, not a core field, so it survives
 # framework upgrades.
 
-after_install = "mm_employee_watcher.mm_employee_watcher.install.after_install"
+after_install = "mm_employee_watcher.install.after_install"
 
 # Doc events
 # ----------
@@ -36,7 +36,7 @@ after_install = "mm_employee_watcher.mm_employee_watcher.install.after_install"
 #
 # doc_events = {
 #     "Delivery Note": {
-#         "on_submit": "mm_employee_watcher.mm_employee_watcher.integrations.wms.on_packing_complete",
+#         "on_submit": "mm_employee_watcher.integrations.wms.on_packing_complete",
 #     },
 # }
 
@@ -47,11 +47,11 @@ scheduler_events = {
 	"cron": {
 		# every minute: close sessions whose target_end_time has passed
 		"* * * * *": [
-			"mm_employee_watcher.mm_employee_watcher.tasks.check_expired_sessions",
+			"mm_employee_watcher.tasks.check_expired_sessions",
 		],
 		# every 5 minutes: mark employees with a stale heartbeat as OFFLINE
 		"*/5 * * * *": [
-			"mm_employee_watcher.mm_employee_watcher.tasks.check_offline_employees",
+			"mm_employee_watcher.tasks.check_offline_employees",
 		],
 	},
 }
