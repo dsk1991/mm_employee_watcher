@@ -6,7 +6,9 @@ transitions and realtime notifications.
 """
 
 import frappe
-from frappe.utils import now_datetime, add_to_date
+from frappe.utils import now_datetime, add_to_date, cint
+
+TRACKING_FIELD = "mm_tracking_enabled"
 
 STATUS_WORKING = "WORKING"
 STATUS_IDLE = "IDLE"
@@ -134,3 +136,29 @@ def log_event(employee, work_session, event_type, qty=None, remarks=None):
 
 def offline_cutoff():
 	return add_to_date(now_datetime(), minutes=-OFFLINE_AFTER_MINUTES)
+
+
+def get_user_for_employee(employee: str):
+	return frappe.db.get_value("Employee", employee, "user_id")
+
+
+def is_tracking_enabled(employee: str) -> bool:
+	"""Requirement #4: a per-user on/off switch (Custom Field on User,
+	created in install.py). Missing field or unset value defaults to
+	tracked, so this is opt-out, not opt-in — matches 'by default track
+	everyone, uncheck the ones who shouldn't be'."""
+	user = get_user_for_employee(employee)
+	if not user:
+		return True
+	value = frappe.db.get_value("User", user, TRACKING_FIELD)
+	if value is None:
+		return True
+	return bool(cint(value))
+
+
+def get_employee_for_user(user: str | None = None):
+	"""Requirement #2: resolve the Employee linked to a User via
+	Employee.user_id — this is how the watcher knows 'who is logged in'
+	without the employee having to pick themselves from a list."""
+	user = user or frappe.session.user
+	return frappe.db.get_value("Employee", {"user_id": user, "status": "Active"})

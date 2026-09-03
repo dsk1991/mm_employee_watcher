@@ -19,6 +19,7 @@ from mm_employee_watcher.mm_employee_watcher.utils import (
 	SESSION_EXTENDED,
 	set_status,
 	get_or_create_status,
+	is_tracking_enabled,
 	log_event,
 	offline_cutoff,
 )
@@ -44,6 +45,8 @@ def check_expired_sessions():
 	)
 
 	for session in expired:
+		if not is_tracking_enabled(session.employee):
+			continue
 		frappe.publish_realtime(
 			event="mm_employee_watcher:session_expired",
 			message={
@@ -79,6 +82,8 @@ def check_offline_employees():
 	)
 
 	for row in stale:
+		if not is_tracking_enabled(row.employee):
+			continue
 		if row.current_session:
 			log_event(row.employee, row.current_session, "Idle Start", remarks="no heartbeat")
 		set_status(row.employee, STATUS_OFFLINE, None)
