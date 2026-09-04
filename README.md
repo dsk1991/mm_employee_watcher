@@ -16,7 +16,8 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
 ## What's in this cut
 
 - DocTypes: `Work Activity Master`, `Employee Work Session`,
-  `Employee Current Status`, `Employee Work Log`, `Employee Work Queue`
+  `Employee Current Status`, `Employee Work Log`, `Employee Work Queue`,
+  `Employee Watcher Alert`, `MM Watcher Settings`
 - **One flat work session per employee.** There is no "section" to start
   first — the employee just declares what work they are doing.
 - Server-side rule: one Primary Active Work per employee at a time,
@@ -65,13 +66,19 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
   automatically into the employee's current work session. Opening Sales
   Invoice, Payment Entry, or a report also aggregates activity into (or
   opens) a matching work session.
+- **Supervisor alerts.** A per-minute job opens an `Employee Watcher Alert`
+  when an employee crosses an **Idle**, **Overdue**, or **Blocked** minute
+  threshold, and clears it when the condition ends. The users listed in
+  **MM Watcher Settings** (a Single DocType — also holds the thresholds and
+  an on/off switch) get a realtime toast plus a notification-bell entry.
 - **Wall-display dashboard** at `/mm_dashboard` — a standalone page (not
   inside Desk), openable by URL from any browser/TV, auto-refreshing
   every 30 seconds. Live cards per employee (status, current work,
-  description, qty done/target, time left or overdue, blocked reason) plus a
-  status count strip at the top. **Click a card** for that employee's whole
-  day — every work session (start/end, duration, what they did, qty) and the
-  full activity log. See "Wall-display dashboard" below.
+  description, qty done/target, live countdown, blocked reason, open-alert
+  flags) plus status counts and a total open-alert count at the top.
+  **Click a card** for that employee's whole day — worked / idle / blocked
+  minutes, every alert with its duration, blocked time by reason, every work
+  session, and the full activity log. See "Wall-display dashboard" below.
 - **WMS integration contract** in
   [`docs/wms-integration.md`](docs/wms-integration.md): foreground heartbeat,
   one compact work bar, idempotent document start, progress sync, and final

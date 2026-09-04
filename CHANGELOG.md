@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0 - 2026-09-04
+
+- **Supervisor alerts.** A per-minute job (`raise_supervisor_alerts`) opens
+  an `Employee Watcher Alert` when an employee crosses an **Idle**,
+  **Overdue**, or **Blocked** threshold, and clears it when the condition
+  ends. The users listed in **MM Watcher Settings** get a realtime toast and
+  a notification-bell entry. Thresholds and the recipient list are set in
+  that Single DocType; `alerts_enabled` turns the whole thing off.
+- **Blocked / idle analysis** in the dashboard drill-down: worked / idle /
+  blocked minutes for the day, every alert with its duration, and blocked
+  time grouped by reason. Cards flag open alerts; the header shows a total
+  open-alert count.
+- New DocTypes: `MM Watcher Settings`, `MM Watcher Alert Recipient`,
+  `Employee Watcher Alert`.
+
 ## 0.3.0 - 2026-09-03
 
 - Remove the Work Section subsystem entirely: `Work Section Master`,
