@@ -38,7 +38,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Event Type",
-   "options": "Start\nPause\nResume\nExtend\nComplete\nIdle Start\nIdle End\nBlocked\nUnblocked\nScreen Opened\nDocument Created\nDocument Submitted\nReport Viewed\nProgress Updated",
+   "options": "Start\nPause\nResume\nExtend\nComplete\nIdle Start\nIdle End\nBreak Start\nBreak End\nBlocked\nUnblocked\nScreen Opened\nDocument Created\nDocument Submitted\nReport Viewed\nProgress Updated",
    "reqd": 1
   },
   {

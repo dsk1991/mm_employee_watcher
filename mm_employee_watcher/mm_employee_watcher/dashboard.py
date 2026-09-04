@@ -203,12 +203,14 @@ def get_employee_detail(employee: str, day: str | None = None):
 		limit=400,
 	)
 
-	# --- Blocked / Idle analysis for the day ---
+	# --- Blocked / Idle / Break analysis for the day ---
 	asc_logs = sorted(logs, key=lambda x: x.event_time)
 	block_end = {"Unblocked", "Resume", "Complete", "Cancelled"}
 	idle_end = {"Idle End", "Complete", "Start"}
+	break_end = {"Break End", "Start", "Complete"}
 	blocked_minutes = 0
 	idle_minutes = 0
+	break_minutes = 0
 	blocked_reasons = {}
 	for idx, ev in enumerate(asc_logs):
 		if ev.event_type == "Blocked":
@@ -226,6 +228,12 @@ def get_employee_detail(employee: str, day: str | None = None):
 				now,
 			)
 			idle_minutes += max(0, int(time_diff_in_seconds(finish, ev.event_time) // 60))
+		elif ev.event_type == "Break Start":
+			finish = next(
+				(e.event_time for e in asc_logs[idx + 1 :] if e.event_type in break_end),
+				now,
+			)
+			break_minutes += max(0, int(time_diff_in_seconds(finish, ev.event_time) // 60))
 
 	alerts = frappe.get_all(
 		"Employee Watcher Alert",
@@ -247,6 +255,7 @@ def get_employee_detail(employee: str, day: str | None = None):
 		"alerts": alerts,
 		"blocked_minutes": blocked_minutes,
 		"idle_minutes": idle_minutes,
+		"break_minutes": break_minutes,
 		"blocked_reasons": [
 			{"reason": k, "minutes": v}
 			for k, v in sorted(blocked_reasons.items(), key=lambda kv: -kv[1])

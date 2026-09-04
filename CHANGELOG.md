@@ -14,6 +14,11 @@
   open-alert count.
 - New DocTypes: `MM Watcher Settings`, `MM Watcher Alert Recipient`,
   `Employee Watcher Alert`.
+- Break time is now logged (`Break Start` / `Break End` Work Log events) and
+  shown as a KPI in the drill-down alongside worked / idle / blocked.
+- The drill-down's activity log has an **All / By work session** toggle so
+  each session's events (and a "no work session" bucket for breaks and
+  navigation) can be read together.
 
 ## 0.3.0 - 2026-09-03
 

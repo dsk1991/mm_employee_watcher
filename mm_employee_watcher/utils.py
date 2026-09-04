@@ -54,6 +54,8 @@ def set_status(employee: str, status: str, current_session: str | None = None):
 	widget in every app listens to."""
 	doc = get_or_create_status(employee)
 	changed = doc.status != status or doc.current_session != current_session
+	if doc.status == STATUS_BREAK and status != STATUS_BREAK:
+		log_event(employee, current_session or doc.current_session, "Break End")
 	doc.status = status
 	doc.current_session = current_session
 	doc.status_since = now_datetime() if changed or not doc.status_since else doc.status_since

@@ -191,6 +191,16 @@
 	.modal .kpis { display: flex; gap: 20px; flex-wrap: wrap; margin: 6px 0 4px; }
 	.modal .kpis .kpi { font-size: .85rem; color: var(--muted); }
 	.modal .kpis .kpi b { display: block; font-size: 1.3rem; color: var(--text); font-variant-numeric: tabular-nums; }
+	.modal .toggle { display: inline-flex; gap: 0; margin-left: 10px; vertical-align: middle; }
+	.modal .toggle button {
+		background: rgba(255,255,255,0.06); color: var(--muted);
+		border: 1px solid rgba(255,255,255,0.14); padding: 2px 10px;
+		font-size: 0.72rem; cursor: pointer;
+	}
+	.modal .toggle button:first-child { border-radius: 5px 0 0 5px; }
+	.modal .toggle button:last-child { border-radius: 0 5px 5px 0; border-left: none; }
+	.modal .toggle button.on { background: rgba(59,130,246,0.25); color: var(--text); }
+	.modal .grp { margin: 10px 0 4px; font-weight: 700; font-size: .82rem; color: #93c5fd; }
 </style>
 </head>
 <body>
@@ -364,6 +374,7 @@ function fmtTime(dt) {
 
 function openDetail(employee) {
 	_detailEmployee = employee;
+	_activityView = "all";
 	var modal = document.getElementById("modal");
 	modal.innerHTML = '<span class="close" onclick="closeDetail()">&times;</span><p>Loading…</p>';
 	document.getElementById("overlay").classList.add("show");
@@ -388,7 +399,11 @@ function closeDetail() {
 	document.getElementById("overlay").classList.remove("show");
 }
 
+var _detailData = null;
+var _activityView = "all";
+
 function renderDetail(d) {
+	_detailData = d;
 	var h = '<span class="close" onclick="closeDetail()">&times;</span>';
 	h += "<h2>" + escapeHtml(d.employee_name) + "</h2>";
 	h += '<div class="sub">' + escapeHtml(STATUS_LABEL[d.status] || d.status || "") + " today</div>";
@@ -396,6 +411,7 @@ function renderDetail(d) {
 	h += '<div class="kpis">' +
 		'<div class="kpi"><b>' + fmtMinutes(d.worked_minutes) + "</b>worked</div>" +
 		'<div class="kpi"><b>' + fmtMinutes(d.idle_minutes || 0) + "</b>idle</div>" +
+		'<div class="kpi"><b>' + fmtMinutes(d.break_minutes || 0) + "</b>break</div>" +
 		'<div class="kpi"><b>' + fmtMinutes(d.blocked_minutes || 0) + "</b>blocked</div>" +
 		'<div class="kpi"><b>' + d.session_count + "</b>work sessions</div>" +
 		"</div>";
@@ -433,17 +449,61 @@ function renderDetail(d) {
 	if (!d.sessions || !d.sessions.length) h += '<tr><td colspan="5" class="tl">No work sessions today.</td></tr>';
 	h += "</table>";
 
-	h += '<div class="sec-title">Activity log</div><div class="tl">';
-	(d.logs || []).forEach(function (l) {
-		h += "<div>" + fmtTime(l.event_time) + " — <b>" + escapeHtml(l.event_type) + "</b>" +
-			(l.reference_name ? " &middot; " + escapeHtml(l.reference_doctype || "") + " " + escapeHtml(l.reference_name) : "") +
-			(l.remarks ? " &middot; " + escapeHtml(l.remarks) : "") +
-			(l.qty ? " &middot; qty " + l.qty : "") + "</div>";
-	});
-	if (!d.logs || !d.logs.length) h += "<div>No events logged today.</div>";
-	h += "</div>";
+	h += '<div class="sec-title">Activity log' +
+		'<span class="toggle">' +
+		'<button data-av="all" class="' + (_activityView === "all" ? "on" : "") + '">All</button>' +
+		'<button data-av="session" class="' + (_activityView === "session" ? "on" : "") + '">By work session</button>' +
+		"</span></div>";
+	h += '<div id="activitybox" class="tl">' + activityHtml(d) + "</div>";
 
 	document.getElementById("modal").innerHTML = h;
+
+	var tog = document.querySelectorAll("#modal .toggle button");
+	for (var i = 0; i < tog.length; i++) {
+		tog[i].addEventListener("click", function () {
+			_activityView = this.getAttribute("data-av");
+			for (var j = 0; j < tog.length; j++) tog[j].classList.toggle("on", tog[j] === this);
+			document.getElementById("activitybox").innerHTML = activityHtml(_detailData);
+		});
+	}
+}
+
+function logLine(l) {
+	return "<div>" + fmtTime(l.event_time) + " — <b>" + escapeHtml(l.event_type) + "</b>" +
+		(l.reference_name ? " &middot; " + escapeHtml(l.reference_doctype || "") + " " + escapeHtml(l.reference_name) : "") +
+		(l.remarks ? " &middot; " + escapeHtml(l.remarks) : "") +
+		(l.qty ? " &middot; qty " + l.qty : "") + "</div>";
+}
+
+function activityHtml(d) {
+	var logs = d.logs || [];
+	if (!logs.length) return "<div>No events logged today.</div>";
+
+	if (_activityView === "all") {
+		return logs.map(logLine).join("");
+	}
+
+	// group by work session
+	var asc = logs.slice().sort(function (a, b) { return a.event_time < b.event_time ? -1 : 1; });
+	var byS = {};
+	asc.forEach(function (l) {
+		var k = l.work_session || "_none";
+		(byS[k] = byS[k] || []).push(l);
+	});
+	var out = "";
+	(d.sessions || []).forEach(function (s) {
+		if (!byS[s.name]) return;
+		out += '<div class="grp">' + fmtTime(s.start_time) + " · " + escapeHtml(s.work_activity || "") +
+			(s.description ? " — " + escapeHtml(s.description) : "") + "</div>";
+		out += byS[s.name].map(logLine).join("");
+		delete byS[s.name];
+	});
+	// leftover sessions not in d.sessions, then the no-session bucket
+	Object.keys(byS).forEach(function (k) {
+		out += '<div class="grp">' + (k === "_none" ? "No work session (break / navigation)" : escapeHtml(k)) + "</div>";
+		out += byS[k].map(logLine).join("");
+	});
+	return out;
 }
 
 document.getElementById("grid").addEventListener("click", function (e) {

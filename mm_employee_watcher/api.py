@@ -508,6 +508,13 @@ def mark_break(employee: str | None = None, reason: str | None = None):
 		_log_session_event(session, "Pause", remarks=reason or _("Authorized break"))
 	elif session and session.status == SESSION_BLOCKED:
 		frappe.throw(_("Resolve or complete the blocked work before starting a break"))
+	log_event(
+		employee,
+		session.name if session else None,
+		"Break Start",
+		remarks=reason or _("Authorized break"),
+		source_app="ERPNext",
+	)
 	set_status(employee, STATUS_BREAK, session.name if session else None)
 	return {"ok": True}
 
