@@ -77,11 +77,12 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
   one compact work bar, idempotent document start, progress sync, and final
   completion calls.
 
-- **Android tracker app** (`android/`) — a thin native Kotlin client that
-  signs an employee into their site and drives the same whitelisted API
-  (Start/End/Extend/Blocked/Break, a background heartbeat foreground service,
-  an over-target notification with Done/Extend/Blocked, and queue auto-chain).
-  GitHub Actions builds the APK; see [`android/README.md`](android/README.md).
+- **Android tracker app** — a thin native Kotlin client that signs an employee
+  into their site and drives the same whitelisted API (Start/End/Extend/
+  Blocked/Break, a background heartbeat foreground service, an over-target
+  notification with Done/Extend/Blocked, and queue auto-chain). Lives in its
+  own repo, which builds the APK via GitHub Actions:
+  <https://github.com/dsk1991/emplyee_tracker_app>.
 
 **Not yet built**: the daily productivity report, FCM push delivery for a
 closed mobile app (the Android app polls instead), and installation of watcher
