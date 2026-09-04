@@ -6,9 +6,14 @@ docs/backend-architecture.md section 6.
 
 import frappe
 from frappe import _
-from frappe.utils import now_datetime, time_diff_in_seconds, today
+from frappe.utils import get_datetime, getdate, now_datetime, time_diff_in_seconds, today
 
 from mm_employee_watcher.utils import is_tracking_enabled
+
+BLOCK_END = {"Unblocked", "Resume", "Complete", "Cancelled"}
+IDLE_END = {"Idle End", "Complete", "Start"}
+BREAK_END = {"Break End", "Start", "Complete"}
+ONGOING = ("Active", "Extended", "Paused", "Blocked")
 
 # WORKING/BLOCKED employees are the ones a supervisor most needs to see
 # first — blocked (needs help right now) even before working.
@@ -147,6 +152,77 @@ def get_dashboard_data():
 		"counts": counts,
 		"open_alert_count": sum(len(v) for v in alerts_by_employee.values()),
 	}
+
+
+@frappe.whitelist()
+def get_dashboard_history(day: str):
+	"""Per-employee totals for a past day — worked / idle / break / blocked
+	minutes, session count and qty done — so the wall dashboard can be
+	back-dated. Cards link to the same drill-down for that day."""
+	_check_dashboard_permission()
+	day = getdate(day)
+	start = f"{day} 00:00:00"
+	end = f"{day} 23:59:59"
+	cap = min(now_datetime(), get_datetime(end))
+
+	sessions = frappe.get_all(
+		"Employee Work Session",
+		filters={"start_time": ["between", [start, end]]},
+		fields=["employee", "employee_name", "status", "start_time", "actual_end_time", "completed_qty"],
+	)
+	logs = frappe.get_all(
+		"Employee Work Log",
+		filters={"event_time": ["between", [start, end]]},
+		fields=["employee", "event_type", "event_time"],
+		order_by="event_time asc",
+	)
+
+	names = {}
+	agg = {}
+	for s in sessions:
+		names.setdefault(s.employee, s.employee_name or s.employee)
+		a = agg.setdefault(s.employee, {"worked": 0.0, "idle": 0.0, "brk": 0.0, "blocked": 0.0, "sessions": 0, "qty": 0.0})
+		a["sessions"] += 1
+		a["qty"] += float(s.completed_qty or 0)
+		finish = s.actual_end_time or (cap if s.status in ONGOING else None)
+		if s.start_time and finish:
+			a["worked"] += max(0, time_diff_in_seconds(finish, s.start_time))
+
+	logs_by_emp = {}
+	for row in logs:
+		logs_by_emp.setdefault(row.employee, []).append(row)
+	for emp, elogs in logs_by_emp.items():
+		names.setdefault(emp, frappe.db.get_value("Employee", emp, "employee_name") or emp)
+		a = agg.setdefault(emp, {"worked": 0.0, "idle": 0.0, "brk": 0.0, "blocked": 0.0, "sessions": 0, "qty": 0.0})
+		for idx, ev in enumerate(elogs):
+			if ev.event_type == "Blocked":
+				fin = next((x.event_time for x in elogs[idx + 1:] if x.event_type in BLOCK_END), cap)
+				a["blocked"] += max(0, time_diff_in_seconds(fin, ev.event_time))
+			elif ev.event_type == "Idle Start":
+				fin = next((x.event_time for x in elogs[idx + 1:] if x.event_type in IDLE_END), cap)
+				a["idle"] += max(0, time_diff_in_seconds(fin, ev.event_time))
+			elif ev.event_type == "Break Start":
+				fin = next((x.event_time for x in elogs[idx + 1:] if x.event_type in BREAK_END), cap)
+				a["brk"] += max(0, time_diff_in_seconds(fin, ev.event_time))
+
+	cards = []
+	for emp, a in agg.items():
+		if not is_tracking_enabled(emp):
+			continue
+		cards.append(
+			{
+				"employee": emp,
+				"employee_name": names.get(emp, emp),
+				"worked_minutes": int(a["worked"] // 60),
+				"idle_minutes": int(a["idle"] // 60),
+				"break_minutes": int(a["brk"] // 60),
+				"blocked_minutes": int(a["blocked"] // 60),
+				"sessions": a["sessions"],
+				"qty": a["qty"],
+			}
+		)
+	cards.sort(key=lambda c: -c["worked_minutes"])
+	return {"day": str(day), "cards": cards}
 
 
 @frappe.whitelist()

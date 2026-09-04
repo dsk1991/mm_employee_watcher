@@ -201,17 +201,34 @@
 	.modal .toggle button:last-child { border-radius: 0 5px 5px 0; border-left: none; }
 	.modal .toggle button.on { background: rgba(59,130,246,0.25); color: var(--text); }
 	.modal .grp { margin: 10px 0 4px; font-weight: 700; font-size: .82rem; color: #93c5fd; }
+	header input[type=date] {
+		background: var(--card-bg); color: var(--text);
+		border: 1px solid rgba(255,255,255,0.18); border-radius: 6px;
+		padding: 4px 8px; font-size: 0.85rem; color-scheme: dark;
+	}
+	header .livebtn {
+		background: rgba(34,197,94,0.2); color: var(--working);
+		border: none; border-radius: 6px; padding: 5px 12px; font-size: 0.8rem;
+		font-weight: 700; cursor: pointer; display: none;
+	}
+	header .livebtn.show { display: inline-block; }
+	.histnote {
+		padding: 8px 24px 0; color: #fbbf24; font-size: 0.9rem; font-weight: 600;
+	}
 </style>
 </head>
 <body>
 
 <header>
 	<h1>🟢 MM Employee Watcher</h1>
-	<div style="display:flex;align-items:center;gap:16px;">
+	<div style="display:flex;align-items:center;gap:12px;">
+		<button class="livebtn" id="livebtn">&larr; Live</button>
+		<input type="date" id="histdate" title="View a past day">
 		<span class="alertchip zero" id="alertchip">0 alerts</span>
 		<div class="clock" id="clock">--:--:--</div>
 	</div>
 </header>
+<div class="histnote" id="histnote" style="display:none;"></div>
 
 <div class="counts" id="counts"></div>
 <div class="grid" id="grid"></div>
@@ -375,14 +392,16 @@ function fmtTime(dt) {
 	return isNaN(d) ? "—" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function openDetail(employee) {
+function openDetail(employee, day) {
 	_detailEmployee = employee;
 	_activityView = "all";
 	var modal = document.getElementById("modal");
 	modal.innerHTML = '<span class="close" onclick="closeDetail()">&times;</span><p>Loading…</p>';
 	document.getElementById("overlay").classList.add("show");
 
-	fetch("/api/method/mm_employee_watcher.dashboard.get_employee_detail?employee=" + encodeURIComponent(employee), {
+	var url = "/api/method/mm_employee_watcher.dashboard.get_employee_detail?employee=" + encodeURIComponent(employee);
+	if (day) url += "&day=" + encodeURIComponent(day);
+	fetch(url, {
 		credentials: "same-origin",
 		headers: { "X-Frappe-CSRF-Token": (window.csrf_token || ""), "Accept": "application/json" }
 	})
@@ -409,7 +428,10 @@ function renderDetail(d) {
 	_detailData = d;
 	var h = '<span class="close" onclick="closeDetail()">&times;</span>';
 	h += "<h2>" + escapeHtml(d.employee_name) + "</h2>";
-	h += '<div class="sub">' + escapeHtml(STATUS_LABEL[d.status] || d.status || "") + " today</div>";
+	var isPast = d.day && d.day !== todayStr();
+	h += '<div class="sub">' +
+		(isPast ? d.day : (escapeHtml(STATUS_LABEL[d.status] || d.status || "") + " &middot; today")) +
+		"</div>";
 
 	h += '<div class="kpis">' +
 		'<div class="kpi"><b>' + fmtMinutes(d.worked_minutes) + "</b>worked</div>" +
@@ -511,7 +533,9 @@ function activityHtml(d) {
 
 document.getElementById("grid").addEventListener("click", function (e) {
 	var card = e.target.closest(".card");
-	if (card && card.getAttribute("data-employee")) openDetail(card.getAttribute("data-employee"));
+	if (card && card.getAttribute("data-employee")) {
+		openDetail(card.getAttribute("data-employee"), _histDay || null);
+	}
 });
 document.getElementById("overlay").addEventListener("click", function (e) {
 	if (e.target === this) closeDetail();
@@ -527,7 +551,15 @@ function escapeHtml(s) {
 	});
 }
 
+var _histDay = null;
+
+function todayStr() {
+	var d = new Date();
+	return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
 function fetchData() {
+	if (_histDay) return; // history mode is not auto-refreshed
 	fetch("/api/method/mm_employee_watcher.dashboard.get_dashboard_data", {
 		credentials: "same-origin",
 		headers: {
@@ -567,6 +599,78 @@ function showError(msg) {
 	empty.style.display = "block";
 }
 
+// ---- history (back-dated) mode ----
+
+function fetchHistory(day) {
+	fetch("/api/method/mm_employee_watcher.dashboard.get_dashboard_history?day=" + encodeURIComponent(day), {
+		credentials: "same-origin",
+		headers: { "X-Frappe-CSRF-Token": (window.csrf_token || ""), "Accept": "application/json" }
+	})
+		.then(function (r) { return r.json(); })
+		.then(function (r) {
+			if (r && r.message) renderHistory(r.message);
+			else showError("Could not load that day.");
+		})
+		.catch(function () { showError("Could not reach the server."); });
+}
+
+function renderHistory(data) {
+	document.getElementById("counts").innerHTML = "";
+	document.getElementById("alertchip").style.display = "none";
+	var grid = document.getElementById("grid");
+	var empty = document.getElementById("empty");
+	grid.innerHTML = "";
+	var cards = data.cards || [];
+	if (!cards.length) {
+		empty.textContent = "No tracked activity on " + data.day + ".";
+		empty.style.display = "block";
+		return;
+	}
+	empty.style.display = "none";
+	cards.forEach(function (c) {
+		var el = document.createElement("div");
+		el.className = "card WORKING";
+		el.setAttribute("data-employee", c.employee);
+		var html = '<div class="top"><span class="name">' + escapeHtml(c.employee_name) + "</span></div>";
+		html += '<div class="livetimer">' + fmtMinutes(c.worked_minutes) + "</div>";
+		html += '<div class="desc">worked · ' + c.sessions + " sessions" + (c.qty ? " · " + c.qty + " qty" : "") + "</div>";
+		var bits = [];
+		if (c.idle_minutes) bits.push(fmtMinutes(c.idle_minutes) + " idle");
+		if (c.break_minutes) bits.push(fmtMinutes(c.break_minutes) + " break");
+		if (c.blocked_minutes) bits.push('<span class="over">' + fmtMinutes(c.blocked_minutes) + " blocked</span>");
+		if (bits.length) html += '<div class="footline"><span>' + bits.join(" · ") + "</span></div>";
+		html += '<button class="viewbtn" data-view="' + escapeHtml(c.employee) + '">View day &rsaquo;</button>';
+		el.innerHTML = html;
+		grid.appendChild(el);
+	});
+}
+
+function setHistory(day) {
+	if (!day || day === todayStr()) {
+		_histDay = null;
+		document.getElementById("histdate").value = "";
+		document.getElementById("livebtn").classList.remove("show");
+		document.getElementById("histnote").style.display = "none";
+		document.getElementById("alertchip").style.display = "";
+		fetchData();
+		return;
+	}
+	_histDay = day;
+	document.getElementById("livebtn").classList.add("show");
+	var note = document.getElementById("histnote");
+	note.textContent = "Showing history for " + day + " — cards are that day's totals, not live status.";
+	note.style.display = "block";
+	fetchHistory(day);
+}
+
+document.getElementById("histdate").max = todayStr();
+document.getElementById("histdate").addEventListener("change", function () {
+	setHistory(this.value);
+});
+document.getElementById("livebtn").addEventListener("click", function () {
+	setHistory(null);
+});
+
 function tickClock() {
 	document.getElementById("clock").textContent = new Date().toLocaleTimeString();
 }
@@ -575,7 +679,7 @@ tickClock();
 setInterval(tickClock, 1000);
 
 fetchData();
-setInterval(fetchData, 30000); // requirement: refresh every 30 seconds
+setInterval(fetchData, 30000); // live dashboard refreshes every 30s
 </script>
 
 </body>

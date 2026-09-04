@@ -89,7 +89,9 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
   flags) plus status counts and a total open-alert count at the top.
   **Click a card** for that employee's whole day — worked / idle / blocked
   minutes, every alert with its duration, blocked time by reason, every work
-  session, and the full activity log. See "Wall-display dashboard" below.
+  session, and the full activity log. A **date picker** back-dates the whole
+  board to a past day's per-employee totals. See "Wall-display dashboard"
+  below.
 - **WMS integration contract** in
   [`docs/wms-integration.md`](docs/wms-integration.md): foreground heartbeat,
   one compact work bar, idempotent document start, progress sync, and final

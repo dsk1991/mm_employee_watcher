@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.1 - 2026-09-04
+
+- **Back-dated dashboard.** `/mm_dashboard` has a date picker; pick a past
+  day and the grid switches to that day's per-employee totals (worked /
+  idle / break / blocked hours, sessions, qty) via the new
+  `get_dashboard_history`. Cards still open the drill-down — now for the
+  chosen day. A "← Live" button returns to the live view.
+
 ## 0.6.0 - 2026-09-04
 
 - **Employee Work Report** (Script Report) — worked / idle / break / blocked
