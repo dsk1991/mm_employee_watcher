@@ -257,6 +257,16 @@ class MetadataTest(unittest.TestCase):
 		)
 		self.assertNotIn("auto_started", script)
 
+	def test_tracking_is_opt_in(self):
+		utils = (ROOT / "mm_employee_watcher" / "utils.py").read_text(encoding="utf-8")
+		fn = utils.split("def is_tracking_enabled")[1].split("\ndef ")[0]
+		# no branch returns True for a missing user / unset value any more
+		self.assertNotIn("return True", fn)
+		self.assertIn("return False", fn)
+		install = (ROOT / "mm_employee_watcher" / "install.py").read_text(encoding="utf-8")
+		self.assertIn('"default": "0"', install)
+		self.assertNotIn('"default": "1"', install.split("mm_tracking_enabled")[1][:400])
+
 	def test_migration_patch_registered(self):
 		patches = (ROOT / "mm_employee_watcher" / "patches.txt").read_text(encoding="utf-8")
 		self.assertIn("mm_employee_watcher.patches.v0_3_0_remove_sections", patches)

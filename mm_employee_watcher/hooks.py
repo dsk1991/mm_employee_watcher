@@ -21,9 +21,9 @@ app_include_js = "mm_employee_watcher.bundle.js"
 
 # Install
 # -------
-# Adds the per-user "Enable Work Tracking" checkbox on the User doctype
-# (requirement #4) — a Custom Field, not a core field, so it survives
-# framework upgrades.
+# Adds the opt-in per-user "Enable Work Tracking" checkbox on the User
+# doctype — a Custom Field, not a core field, so it survives framework
+# upgrades. Tracking is OFF until this is ticked.
 
 before_install = "mm_employee_watcher.install.before_install"
 before_migrate = "mm_employee_watcher.install.before_migrate"

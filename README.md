@@ -37,10 +37,11 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
   → `publish_realtime`) and an offline/no-heartbeat watchdog
 - **Employee = logged-in User.** `Employee.user_id` resolves who's asking
   on every API call — no employee picker needed, login is enough.
-- **Per-user tracking on/off switch** — a Custom Field
-  (`mm_tracking_enabled`) added to the standard User form on install.
-  Unchecked users are invisible to the watcher: no popups, no scheduler
-  actions, no state changes.
+- **Opt-in per-user tracking switch** — a Custom Field (`mm_tracking_enabled`)
+  on the standard User form. Tracking, the Desk widget, the forced popups,
+  the queue and the dashboard are **on only when it is ticked**. Every other
+  user (unticked, or with no value) is completely invisible to the watcher:
+  no widget, no popups, no scheduler actions, not on the dashboard.
 - **Floating work widget** (`public/js/mm_employee_watcher.bundle.js`, loaded on every Desk
   page): a small WhatsApp-style button bottom-right with a live countdown
   badge for the current work. Click it for a panel — current activity,

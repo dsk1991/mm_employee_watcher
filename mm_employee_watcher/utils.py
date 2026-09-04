@@ -165,19 +165,16 @@ def get_user_for_employee(employee: str):
 
 
 def is_tracking_enabled(employee: str) -> bool:
-	"""Requirement #4: a per-user on/off switch (Custom Field on User,
-	created in install.py). Missing field or unset value defaults to
-	tracked, so this is opt-out, not opt-in — matches 'by default track
-	everyone, uncheck the ones who shouldn't be'."""
+	"""Opt-in per-user switch: tracking (and therefore the Desk widget, the
+	forced popups, scheduler actions and the dashboard) is on ONLY when the
+	User's "Enable Work Tracking" Custom Field is explicitly ticked. No
+	linked user, missing field, or an unset value all mean 'not tracked'."""
 	user = get_user_for_employee(employee)
 	if not user:
-		return True
+		return False
 	if not frappe.db.has_column("User", TRACKING_FIELD):
-		return True
-	value = frappe.db.get_value("User", user, TRACKING_FIELD)
-	if value is None:
-		return True
-	return bool(cint(value))
+		return False
+	return bool(cint(frappe.db.get_value("User", user, TRACKING_FIELD)))
 
 
 def get_employee_for_user(user: str | None = None):

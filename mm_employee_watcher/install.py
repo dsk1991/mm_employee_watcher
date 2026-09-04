@@ -93,11 +93,25 @@ def setup_required_records():
 	create_default_activities()
 
 
+TRACKING_FIELD_DESCRIPTION = (
+	"Tick this to turn on MM Employee Watcher for this user — the Desk work "
+	"widget, the forced 'Work Now' popups, the queue, and the live dashboard. "
+	"Left unticked (the default), the user is completely invisible to the "
+	"watcher."
+)
+
+
 def create_user_tracking_field():
-	"""Requirement #4: a per-user on/off switch for tracking, living on the
-	User doctype as a Custom Field (so it survives framework upgrades and
-	shows up on the standard User form with no extra UI work)."""
-	if frappe.db.exists("Custom Field", {"dt": "User", "fieldname": "mm_tracking_enabled"}):
+	"""Opt-in per-user switch for tracking, a Custom Field on the User form.
+	Idempotent: also fixes an older opt-out field (default '1') to opt-in."""
+	existing = frappe.db.exists("Custom Field", {"dt": "User", "fieldname": "mm_tracking_enabled"})
+	if existing:
+		cf = frappe.get_doc("Custom Field", existing)
+		if cf.default != "0" or cf.description != TRACKING_FIELD_DESCRIPTION:
+			cf.default = "0"
+			cf.description = TRACKING_FIELD_DESCRIPTION
+			cf.label = "Enable Work Tracking (MM Employee Watcher)"
+			cf.save(ignore_permissions=True)
 		return
 
 	frappe.get_doc(
@@ -107,13 +121,9 @@ def create_user_tracking_field():
 			"fieldname": "mm_tracking_enabled",
 			"label": "Enable Work Tracking (MM Employee Watcher)",
 			"fieldtype": "Check",
-			"default": "1",
+			"default": "0",
 			"insert_after": "enabled",
-			"description": (
-				"Uncheck to stop MM Employee Watcher from tracking this user's "
-				"work sessions — e.g. for admins, supervisors, or any role that "
-				"shouldn't be tracked as WORKING/IDLE/BREAK."
-			),
+			"description": TRACKING_FIELD_DESCRIPTION,
 		}
 	).insert(ignore_permissions=True)
 

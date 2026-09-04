@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0 - 2026-09-04
+
+- **Tracking is now opt-in.** `is_tracking_enabled` returns True only when
+  the User's "Enable Work Tracking" checkbox is *explicitly ticked* — no
+  linked user, no Custom Field, or an unset value all mean "not tracked".
+  The Custom Field default changes to unticked, and `after_migrate` fixes an
+  existing opt-out field to opt-in. **After upgrading, tick the box on each
+  user you want tracked** — everyone else loses the widget, popups, queue
+  and dashboard presence.
+
 ## 0.7.0 - 2026-09-04
 
 - **Queued work no longer auto-starts.** `_complete_session` just closes the
