@@ -238,6 +238,25 @@ class MetadataTest(unittest.TestCase):
 		self.assertIn("data-mm-resume", script)
 		self.assertIn("mm_employee_watcher.api.resume_work", script)
 
+	def test_queue_does_not_auto_start(self):
+		api = (ROOT / "mm_employee_watcher" / "api.py").read_text(encoding="utf-8")
+		self.assertNotIn("_start_next_from_queue", api)
+		self.assertNotIn("auto_started", api)
+		impl = (
+			ROOT / "mm_employee_watcher" / "mm_employee_watcher" / "dashboard.py"
+		).read_text(encoding="utf-8")
+		self.assertIn("def add_queue_item", impl)
+		self.assertIn("def get_queue_form_data", impl)
+		shim = (ROOT / "mm_employee_watcher" / "dashboard.py").read_text(encoding="utf-8")
+		self.assertIn("add_queue_item", shim)
+		page = (ROOT / "mm_employee_watcher" / "www" / "mm_dashboard.html").read_text(encoding="utf-8")
+		self.assertIn("add_queue_item", page)
+		self.assertIn("/app/work-queue-schedule", page)
+		script = (ROOT / "mm_employee_watcher" / "public" / "js" / "mm_employee_watcher.bundle.js").read_text(
+			encoding="utf-8"
+		)
+		self.assertNotIn("auto_started", script)
+
 	def test_migration_patch_registered(self):
 		patches = (ROOT / "mm_employee_watcher" / "patches.txt").read_text(encoding="utf-8")
 		self.assertIn("mm_employee_watcher.patches.v0_3_0_remove_sections", patches)

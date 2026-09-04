@@ -21,9 +21,75 @@ STATUS_ORDER = {"BLOCKED": 0, "WORKING": 1, "BREAK": 2, "IDLE": 3, "OFFLINE": 4,
 DASHBOARD_ROLES = {"System Manager", "HR Manager", "Employee Watcher Manager", "Employee Watcher Viewer"}
 
 
+MANAGE_ROLES = {"System Manager", "HR Manager", "Employee Watcher Manager"}
+
+
 def _check_dashboard_permission():
 	if not DASHBOARD_ROLES.intersection(frappe.get_roles()):
 		frappe.throw(_("You do not have permission to view the employee dashboard"), frappe.PermissionError)
+
+
+def _check_manage_permission():
+	if not MANAGE_ROLES.intersection(frappe.get_roles()):
+		frappe.throw(_("You do not have permission to manage the work queue"), frappe.PermissionError)
+
+
+@frappe.whitelist()
+def get_queue_form_data():
+	"""Employee + activity lists for the dashboard's 'Add to queue' form."""
+	_check_manage_permission()
+	return {
+		"employees": frappe.get_all(
+			"Employee",
+			filters={"status": "Active"},
+			fields=["name", "employee_name", "department"],
+			order_by="employee_name asc",
+		),
+		"activities": frappe.get_all(
+			"Work Activity Master", fields=["name"], order_by="name asc"
+		),
+	}
+
+
+@frappe.whitelist()
+def add_queue_item(
+	employee: str,
+	work_activity: str,
+	instructions: str | None = None,
+	target_qty: float | None = None,
+	priority: int | None = None,
+	for_date: str | None = None,
+):
+	"""Add one pending task to an employee's work queue from the dashboard.
+	It stays Pending until the employee starts it — nothing auto-starts."""
+	_check_manage_permission()
+	if not frappe.db.exists("Employee", {"name": employee, "status": "Active"}):
+		frappe.throw(_("{0} is not an active employee").format(employee))
+	if not frappe.db.exists("Work Activity Master", work_activity):
+		frappe.throw(_("Unknown work activity {0}").format(work_activity))
+
+	doc = frappe.get_doc(
+		{
+			"doctype": "Employee Work Queue",
+			"employee": employee,
+			"work_activity": work_activity,
+			"instructions": instructions,
+			"target_qty": frappe.utils.flt(target_qty) or None,
+			"priority": frappe.utils.cint(priority),
+			"for_date": for_date or frappe.utils.today(),
+			"status": "Pending",
+		}
+	)
+	doc.insert(ignore_permissions=True)
+	# Nudge only an idle employee's widget to refresh its queue list; never
+	# interrupt someone who is already working.
+	current = frappe.db.get_value("Employee Current Status", {"employee": employee}, "status")
+	user = frappe.db.get_value("Employee", employee, "user_id")
+	if user and current in (None, "IDLE", "OFFLINE"):
+		frappe.publish_realtime(
+			event="mm_employee_watcher:status_update", message={"employee": employee}, user=user
+		)
+	return {"ok": True, "name": doc.name}
 
 
 @frappe.whitelist()

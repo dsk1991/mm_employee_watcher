@@ -58,13 +58,15 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
   work.
 - **Expiry popup.** When a session passes its target time the server pushes
   a realtime alert and the widget opens a **Done / Extend / Blocked** dialog.
-- **Auto-chain on Done.** `end_work` / `complete_work` immediately looks at
-  `Employee Work Queue` and auto-starts the next pending item for that
-  employee — no idle gap. Only when the queue is empty does the employee go
-  `IDLE` and get the forced "Work Now" popup.
-- **Pick from the queue.** An idle employee's widget lists their pending
-  `Employee Work Queue` items with per-task Start buttons; the forced popup
-  has a "Pick from your queue" selector (`get_my_queue` / `start_queue_item`).
+- **Queued work never auto-starts.** After Done the employee goes `IDLE`
+  and picks the next task themselves — the idle widget lists their pending
+  `Employee Work Queue` items with per-task Start buttons, and the forced
+  "Work Now" popup has a "Pick from your queue" selector (`get_my_queue` /
+  `start_queue_item`). Scheduled tasks sit in the queue until started.
+- **Add to the queue from the dashboard.** `/mm_dashboard` has an "Add to
+  queue" form (`add_queue_item`, manager-only) plus links to the
+  `Work Queue Schedule`, `Employee Work Queue`, and `Work Activity Master`
+  list views in Desk.
 - **`Work Queue Schedule`.** A recurring template — Daily / Weekly (by
   weekday) / Monthly (by day-of-month, e.g. the 1st) / Specific Dates — that
   an hourly job turns into queue items (once per schedule per day) for its

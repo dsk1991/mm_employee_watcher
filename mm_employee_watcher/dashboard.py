@@ -6,10 +6,18 @@ the whitelisted methods here so both the canonical and older nested paths work.
 """
 
 from .mm_employee_watcher.dashboard import (
+	add_queue_item,
 	get_dashboard_data,
 	get_dashboard_history,
 	get_employee_detail,
+	get_queue_form_data,
 )
 
 
-__all__ = ["get_dashboard_data", "get_dashboard_history", "get_employee_detail"]
+__all__ = [
+	"add_queue_item",
+	"get_dashboard_data",
+	"get_dashboard_history",
+	"get_employee_detail",
+	"get_queue_form_data",
+]

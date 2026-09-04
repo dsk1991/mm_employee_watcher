@@ -151,34 +151,6 @@ def _create_session(
 	return session
 
 
-def _start_next_from_queue(employee):
-	"""Requirement #5: as soon as one work is done, pick up the next
-	queued item automatically — no idle gap, no manual Start tap. Returns
-	the new Employee Work Session dict, or None if the queue is empty (the
-	employee goes IDLE and the Desk 'Work Now' popup takes over)."""
-	items = frappe.get_all(
-		"Employee Work Queue",
-		filters={"employee": employee, "status": "Pending"},
-		fields=["name", "work_activity", "reference_doctype", "reference_name", "target_qty"],
-		order_by="priority desc, creation asc",
-		limit=1,
-	)
-	if not items:
-		return None
-	item = items[0]
-
-	session = _create_session(
-		employee,
-		item.work_activity,
-		target_qty=item.target_qty,
-		reference_doctype=item.reference_doctype,
-		reference_name=item.reference_name,
-		queue_item=item.name,
-	)
-	frappe.db.set_value("Employee Work Queue", item.name, "status", "Assigned")
-	return session.as_dict()
-
-
 @frappe.whitelist()
 def start_work(
 	work_activity: str,
@@ -312,9 +284,12 @@ def start_reference_work(
 	return {"tracking": True, "created": True, "session": session.as_dict()}
 
 
-def _complete_session(session, completed_qty=None, remarks=None, auto_chain=True):
+def _complete_session(session, completed_qty=None, remarks=None):
+	"""Close a work session and drop the employee to IDLE. Queued work is
+	never auto-started — the employee picks the next task from their queue
+	in the widget."""
 	if session.status == SESSION_COMPLETED:
-		return {"already_completed": True, "auto_started": None, "next_work": None}
+		return {"already_completed": True}
 	_require_session_status(session, OPEN_SESSION_STATUSES, _("complete"))
 
 	session.status = SESSION_COMPLETED
@@ -332,39 +307,16 @@ def _complete_session(session, completed_qty=None, remarks=None, auto_chain=True
 		frappe.db.set_value("Employee Work Queue", session.queue_item, "status", "Completed")
 
 	_log_session_event(session, "Complete", qty=session.completed_qty, remarks=remarks)
+	set_status(session.employee, STATUS_IDLE, None)
 
-	auto_started = None
-	auto_start_failed = False
-	if auto_chain and is_tracking_enabled(session.employee):
-		savepoint = "mm_employee_watcher_auto_chain"
-		frappe.db.savepoint(savepoint)
-		try:
-			auto_started = _start_next_from_queue(session.employee)
-		except Exception:
-			frappe.db.rollback(save_point=savepoint)
-			auto_start_failed = True
-			frappe.log_error(
-				title="MM Employee Watcher auto-chain failed",
-				message=frappe.get_traceback(),
-			)
-
-	if not auto_started:
-		set_status(session.employee, STATUS_IDLE, None)
-
-	return {
-		"already_completed": False,
-		"auto_started": auto_started,
-		"auto_start_failed": auto_start_failed,
-		"next_work": None if auto_started or not auto_chain else get_next_work(session.employee),
-	}
+	return {"already_completed": False}
 
 
 @frappe.whitelist()
 def complete_work(work_session: str, completed_qty: float | None = None, remarks: str | None = None):
-	"""Employee taps Done (or an integration hook calls this automatically
-	when the source WMS/production document finishes). Requirement #5:
-	immediately tries to auto-start the next queued work for this
-	employee; only falls back to IDLE if the queue is empty."""
+	"""Employee taps Done (or an integration hook calls this when the source
+	WMS/production document finishes). The employee then goes IDLE and picks
+	their next task from the queue — nothing auto-starts."""
 	return _complete_session(_get_session_for_actor(work_session), completed_qty, remarks)
 
 
@@ -754,7 +706,7 @@ def record_desktop_activity(
 				"work_conflict": True,
 				"current_work": work.work_activity,
 			}
-		_complete_session(work, remarks=_("Automatically changed Desk activity"), auto_chain=False)
+		_complete_session(work, remarks=_("Automatically changed Desk activity"))
 		work = None
 
 	if not work:

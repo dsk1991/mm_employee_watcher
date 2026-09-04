@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.0 - 2026-09-04
+
+- **Queued work no longer auto-starts.** `_complete_session` just closes the
+  session and drops the employee to `IDLE`; `_start_next_from_queue` and the
+  auto-chain response fields are gone. The employee starts the next task
+  from their queue (widget list or the "Pick from your queue" selector).
+  Scheduled tasks stay `Pending` until started.
+- **Dashboard queue management.** A toolbar above the grid (managers only)
+  with an inline **Add to queue** form (`add_queue_item` /
+  `get_queue_form_data`) and links to the `Work Queue Schedule`,
+  `Employee Work Queue`, and `Work Activity Master` Desk list views.
+
 ## 0.6.1 - 2026-09-04
 
 - **Back-dated dashboard.** `/mm_dashboard` has a date picker; pick a past

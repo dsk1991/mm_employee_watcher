@@ -215,6 +215,32 @@
 	.histnote {
 		padding: 8px 24px 0; color: #fbbf24; font-size: 0.9rem; font-weight: 600;
 	}
+	.toolbar {
+		display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+		padding: 14px 24px 0;
+	}
+	.toolbar a, .toolbar button {
+		font-size: 0.82rem; text-decoration: none; cursor: pointer;
+		border-radius: 6px; padding: 5px 12px; border: 1px solid rgba(255,255,255,0.16);
+		background: rgba(255,255,255,0.06); color: var(--text);
+	}
+	.toolbar button.primary { background: rgba(59,130,246,0.28); border-color: transparent; font-weight: 700; }
+	.toolbar a:hover, .toolbar button:hover { background: rgba(255,255,255,0.16); }
+	.qform label { display: block; font-size: 0.8rem; color: var(--muted); margin: 10px 0 3px; }
+	.qform select, .qform input, .qform textarea {
+		width: 100%; background: var(--bg); color: var(--text);
+		border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; padding: 7px 9px;
+		font-size: 0.9rem; color-scheme: dark;
+	}
+	.qform .row2 { display: flex; gap: 12px; }
+	.qform .row2 > div { flex: 1; }
+	.qform .actions { margin-top: 16px; display: flex; gap: 8px; }
+	.qform .actions button {
+		border: none; border-radius: 6px; padding: 8px 16px; font-weight: 700; cursor: pointer;
+	}
+	.qform .actions .save { background: var(--working); color: #06240f; }
+	.qform .actions .cancel { background: rgba(255,255,255,0.1); color: var(--text); }
+	.qform .msg { margin-top: 10px; font-size: 0.85rem; }
 </style>
 </head>
 <body>
@@ -230,11 +256,20 @@
 </header>
 <div class="histnote" id="histnote" style="display:none;"></div>
 
+<div class="toolbar" id="toolbar" style="display:none;">
+	<button class="primary" id="addqbtn">+ Add to queue</button>
+	<a href="/app/employee-work-queue" target="_blank" rel="noopener">Work Queue &#8599;</a>
+	<a href="/app/work-queue-schedule/new" target="_blank" rel="noopener">New Schedule &#8599;</a>
+	<a href="/app/work-queue-schedule" target="_blank" rel="noopener">Schedules &#8599;</a>
+	<a href="/app/work-activity-master" target="_blank" rel="noopener">Activities &#8599;</a>
+</div>
+
 <div class="counts" id="counts"></div>
 <div class="grid" id="grid"></div>
 <div class="empty" id="empty" style="display:none;">No employees are being tracked right now.</div>
 
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+<div class="overlay" id="qoverlay"><div class="modal" id="qmodal" style="width:min(460px,96vw);"></div></div>
 
 <script>
 window.csrf_token = "{{ csrf_token or '' }}";
@@ -541,7 +576,7 @@ document.getElementById("overlay").addEventListener("click", function (e) {
 	if (e.target === this) closeDetail();
 });
 document.addEventListener("keydown", function (e) {
-	if (e.key === "Escape") closeDetail();
+	if (e.key === "Escape") { closeDetail(); closeAddQueue(); }
 });
 
 function escapeHtml(s) {
@@ -669,6 +704,92 @@ document.getElementById("histdate").addEventListener("change", function () {
 });
 document.getElementById("livebtn").addEventListener("click", function () {
 	setHistory(null);
+});
+
+// ---- add-to-queue ----
+
+var _queueForm = null;
+
+function api(method, params) {
+	var url = "/api/method/" + method;
+	var opts = {
+		method: "POST",
+		credentials: "same-origin",
+		headers: {
+			"X-Frappe-CSRF-Token": (window.csrf_token || ""),
+			"Accept": "application/json",
+			"Content-Type": "application/json"
+		},
+		body: JSON.stringify(params || {})
+	};
+	return fetch(url, opts).then(function (r) { return r.json(); });
+}
+
+api("mm_employee_watcher.dashboard.get_queue_form_data")
+	.then(function (r) {
+		if (r && r.message && r.message.employees) {
+			_queueForm = r.message;
+			document.getElementById("toolbar").style.display = "flex";
+		}
+	})
+	.catch(function () {});
+
+function openAddQueue() {
+	if (!_queueForm) return;
+	var emps = _queueForm.employees.map(function (e) {
+		return '<option value="' + escapeHtml(e.name) + '">' + escapeHtml(e.employee_name || e.name) +
+			(e.department ? " — " + escapeHtml(e.department) : "") + "</option>";
+	}).join("");
+	var acts = _queueForm.activities.map(function (a) {
+		return '<option value="' + escapeHtml(a.name) + '">' + escapeHtml(a.name) + "</option>";
+	}).join("");
+	document.getElementById("qmodal").innerHTML =
+		'<span class="close" onclick="closeAddQueue()">&times;</span>' +
+		"<h2>Add to queue</h2>" +
+		'<div class="qform">' +
+		"<label>Employee</label><select id=\"q_emp\">" + emps + "</select>" +
+		"<label>Work activity</label><select id=\"q_act\">" + acts + "</select>" +
+		"<label>Instructions</label><textarea id=\"q_ins\" rows=\"2\" placeholder=\"What exactly to do\"></textarea>" +
+		'<div class="row2">' +
+		"<div><label>Target qty</label><input id=\"q_qty\" type=\"number\" min=\"0\" step=\"any\"></div>" +
+		"<div><label>Priority</label><input id=\"q_pri\" type=\"number\" value=\"0\"></div>" +
+		"</div>" +
+		"<label>For date</label><input id=\"q_date\" type=\"date\" value=\"" + todayStr() + "\">" +
+		'<div class="msg" id="q_msg"></div>' +
+		'<div class="actions">' +
+		'<button class="save" onclick="submitAddQueue()">Add task</button>' +
+		'<button class="cancel" onclick="closeAddQueue()">Cancel</button>' +
+		"</div></div>";
+	document.getElementById("qoverlay").classList.add("show");
+}
+
+function closeAddQueue() {
+	document.getElementById("qoverlay").classList.remove("show");
+}
+
+function submitAddQueue() {
+	var msg = document.getElementById("q_msg");
+	msg.textContent = "Saving…";
+	api("mm_employee_watcher.dashboard.add_queue_item", {
+		employee: document.getElementById("q_emp").value,
+		work_activity: document.getElementById("q_act").value,
+		instructions: document.getElementById("q_ins").value,
+		target_qty: document.getElementById("q_qty").value || null,
+		priority: document.getElementById("q_pri").value || 0,
+		for_date: document.getElementById("q_date").value || null
+	}).then(function (r) {
+		if (r && r.message && r.message.ok) {
+			closeAddQueue();
+			if (!_histDay) fetchData();
+		} else {
+			msg.textContent = (r && (r._server_messages || r.exception)) ? "Could not add — check the values." : "Failed.";
+		}
+	}).catch(function () { msg.textContent = "Could not reach the server."; });
+}
+
+document.getElementById("addqbtn").addEventListener("click", openAddQueue);
+document.getElementById("qoverlay").addEventListener("click", function (e) {
+	if (e.target === this) closeAddQueue();
 });
 
 function tickClock() {

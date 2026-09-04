@@ -829,25 +829,11 @@ mm_employee_watcher.show_expiry_dialog = function (data) {
 						remarks: values.remarks,
 						completed_qty: values.completed_qty,
 					},
-					callback: function (r) {
+					callback: function () {
 						d.hide();
-						var res = r.message || {};
-						if (res.auto_started) {
-							// Requirement #5: next queued work picked up automatically.
-							frappe.show_alert({
-								message: __("Next work started: {0}", [res.auto_started.work_activity]),
-								indicator: "green",
-							});
-							mm_employee_watcher.check_status(true);
-						} else {
-							if (res.auto_start_failed) {
-								frappe.msgprint(
-									__("Work completed, but the next queue item could not start. Please ask a supervisor to check it.")
-								);
-							}
-							// Nothing queued — force the "Work Now" popup.
-							mm_employee_watcher.check_status();
-						}
+						// Employee is now IDLE — force the "Work Now" popup so they
+						// pick the next task from their queue.
+						mm_employee_watcher.check_status();
 					},
 				});
 			}
