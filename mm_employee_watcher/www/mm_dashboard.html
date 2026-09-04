@@ -241,6 +241,29 @@
 	.qform .actions .save { background: var(--working); color: #06240f; }
 	.qform .actions .cancel { background: rgba(255,255,255,0.1); color: var(--text); }
 	.qform .msg { margin-top: 10px; font-size: 0.85rem; }
+	.todaystrip {
+		padding: 8px 24px 0; color: var(--muted); font-size: 0.85rem;
+		display: flex; gap: 16px; flex-wrap: wrap;
+	}
+	.todaystrip b { color: var(--text); }
+	.filterbar { padding: 12px 24px 0; display: flex; gap: 10px; flex-wrap: wrap; }
+	.filterbar input, .filterbar select {
+		background: var(--card-bg); color: var(--text);
+		border: 1px solid rgba(255,255,255,0.16); border-radius: 7px;
+		padding: 7px 11px; font-size: 0.88rem; color-scheme: dark;
+	}
+	.filterbar input { width: 260px; max-width: 100%; }
+	.sess-view {
+		background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--muted);
+		border-radius: 5px; padding: 2px 9px; font-size: 0.75rem; cursor: pointer;
+	}
+	.sess-view:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+	.sess-detail { background: rgba(255,255,255,0.03); }
+	.sess-detail td { padding: 10px 14px !important; }
+	.sess-detail .tl > div { padding: 3px 0; border-bottom: 1px solid #21252e; font-size: 0.82rem; color: var(--muted); }
+	.sess-detail .tl b { color: var(--text); }
+	.reflink { color: #93c5fd; text-decoration: none; }
+	.reflink:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -265,6 +288,11 @@
 </div>
 
 <div class="counts" id="counts"></div>
+<div class="todaystrip" id="todaystrip"></div>
+<div class="filterbar">
+	<input type="text" id="empfilter" placeholder="🔎 Search employee…">
+	<select id="deptfilter"><option value="">All departments</option></select>
+</div>
 <div class="grid" id="grid"></div>
 <div class="empty" id="empty" style="display:none;">No employees are being tracked right now.</div>
 
@@ -311,8 +339,14 @@ function render(data) {
 
 	var alertN = data.open_alert_count || 0;
 	var chip = document.getElementById("alertchip");
+	chip.style.display = "";
 	chip.textContent = alertN + (alertN === 1 ? " alert" : " alerts");
 	chip.className = "alertchip" + (alertN ? "" : " zero");
+
+	var tt = data.today_totals || {};
+	document.getElementById("todaystrip").innerHTML =
+		"Today: <b>" + (tt.created || 0) + "</b> created &middot; <b>" + (tt.submitted || 0) +
+		"</b> submitted &middot; <b>" + (tt.reports || 0) + "</b> reports viewed";
 
 	var grid = document.getElementById("grid");
 	var empty = document.getElementById("empty");
@@ -320,6 +354,7 @@ function render(data) {
 
 	if (!data.cards || !data.cards.length) {
 		empty.style.display = "block";
+		applyEmployeeFilter();
 		return;
 	}
 	empty.style.display = "none";
@@ -329,6 +364,7 @@ function render(data) {
 		var alerts = c.open_alerts || [];
 		el.className = "card " + cardClass(c.status) + (alerts.length ? " has-alert" : "");
 		el.setAttribute("data-employee", c.employee);
+		el.setAttribute("data-department", c.department || "");
 
 		var html = "";
 		html += '<div class="top">';
@@ -395,7 +431,49 @@ function render(data) {
 		grid.appendChild(el);
 	});
 	updateLiveTimers();
+	applyEmployeeFilter();
 }
+
+// ---- name + department filter (client-side; survives the 30s re-render) ----
+var _empFilter = "";
+var _deptFilter = "";
+
+function refreshDeptOptions() {
+	var sel = document.getElementById("deptfilter");
+	var cards = document.querySelectorAll("#grid .card");
+	var seen = {};
+	var depts = [];
+	for (var i = 0; i < cards.length; i++) {
+		var dep = cards[i].getAttribute("data-department");
+		if (dep && !seen[dep]) { seen[dep] = true; depts.push(dep); }
+	}
+	depts.sort();
+	var current = sel.value;
+	sel.innerHTML = '<option value="">All departments</option>' +
+		depts.map(function (d) { return '<option value="' + escapeHtml(d) + '">' + escapeHtml(d) + "</option>"; }).join("");
+	if (depts.indexOf(current) > -1) sel.value = current;
+}
+
+function applyEmployeeFilter() {
+	refreshDeptOptions();
+	var q = _empFilter.trim().toLowerCase();
+	var cards = document.querySelectorAll("#grid .card");
+	for (var i = 0; i < cards.length; i++) {
+		var name = (cards[i].querySelector(".name") || {}).textContent || "";
+		var dep = cards[i].getAttribute("data-department") || "";
+		var nameOk = !q || name.toLowerCase().indexOf(q) > -1;
+		var deptOk = !_deptFilter || dep === _deptFilter;
+		cards[i].style.display = (nameOk && deptOk) ? "" : "none";
+	}
+}
+document.getElementById("empfilter").addEventListener("input", function () {
+	_empFilter = this.value;
+	applyEmployeeFilter();
+});
+document.getElementById("deptfilter").addEventListener("change", function () {
+	_deptFilter = this.value;
+	applyEmployeeFilter();
+});
 
 function countdownStr(endStr) {
 	var d = new Date(String(endStr).replace(" ", "T"));
@@ -493,20 +571,22 @@ function renderDetail(d) {
 	}
 
 	h += '<div class="sec-title">Work sessions</div>';
-	h += "<table><tr><th>Time</th><th>Activity</th><th>What they did</th><th>Qty</th><th>Status</th></tr>";
+	h += "<table><tr><th>Time</th><th>Activity</th><th>What they did</th><th>Qty</th><th>Status</th><th></th></tr>";
 	(d.sessions || []).forEach(function (s) {
 		var endTxt = s.actual_end_time ? fmtTime(s.actual_end_time) : (s.ongoing ? "now" : "—");
 		var dur = s.minutes != null ? " (" + fmtMinutes(s.minutes) + ")" : "";
 		var ref = s.reference_name
-			? '<br><span class="tl">' + escapeHtml(s.reference_doctype || "") + ": " + escapeHtml(s.reference_name) + "</span>"
+			? '<br><span class="tl">' + refLink(s.reference_doctype, s.reference_name) + "</span>"
 			: "";
 		h += "<tr><td>" + fmtTime(s.start_time) + " – " + endTxt + dur + "</td>" +
 			"<td>" + escapeHtml(s.work_activity || "") + "</td>" +
 			"<td>" + escapeHtml(s.description || "") + ref + "</td>" +
 			"<td>" + (s.completed_qty || 0) + (s.target_qty ? " / " + s.target_qty : "") + "</td>" +
-			"<td>" + escapeHtml(s.status || "") + "</td></tr>";
+			"<td>" + escapeHtml(s.status || "") + "</td>" +
+			'<td><button class="sess-view" data-sess="' + escapeHtml(s.name) + '">View</button></td></tr>';
+		h += '<tr class="sess-detail" id="sd-' + escapeHtml(s.name) + '" style="display:none;"><td colspan="6"></td></tr>';
 	});
-	if (!d.sessions || !d.sessions.length) h += '<tr><td colspan="5" class="tl">No work sessions today.</td></tr>';
+	if (!d.sessions || !d.sessions.length) h += '<tr><td colspan="6" class="tl">No work sessions today.</td></tr>';
 	h += "</table>";
 
 	h += '<div class="sec-title">Activity log' +
@@ -526,11 +606,61 @@ function renderDetail(d) {
 			document.getElementById("activitybox").innerHTML = activityHtml(_detailData);
 		});
 	}
+
+	document.querySelectorAll("#modal .sess-view").forEach(function (btn) {
+		btn.addEventListener("click", function () {
+			var name = this.getAttribute("data-sess");
+			var row = document.getElementById("sd-" + name);
+			if (!row) return;
+			var open = row.style.display !== "none";
+			if (open) {
+				row.style.display = "none";
+				this.textContent = "View";
+			} else {
+				row.querySelector("td").innerHTML = sessionDetailHtml(name);
+				row.style.display = "";
+				this.textContent = "Hide";
+			}
+		});
+	});
+}
+
+function sessionDetailHtml(sessName) {
+	var d = _detailData || {};
+	var s = (d.sessions || []).find(function (x) { return x.name === sessName; });
+	var mylogs = (d.logs || [])
+		.filter(function (l) { return l.work_session === sessName; })
+		.sort(function (a, b) { return a.event_time < b.event_time ? -1 : 1; });
+
+	var h = '<div class="tl">';
+	if (s) {
+		h += "<div><b>" + escapeHtml(s.work_activity || "") + "</b> &middot; " + escapeHtml(s.status || "") +
+			(s.source_app ? " &middot; " + escapeHtml(s.source_app) : "") +
+			(s.extended_minutes ? " &middot; extended " + s.extended_minutes + "m" : "") + "</div>";
+		if (s.reference_name) {
+			h += "<div>Reference: " + refLink(s.reference_doctype, s.reference_name) + "</div>";
+		}
+	}
+	if (!mylogs.length) {
+		h += "<div>No log entries tied to this session.</div>";
+	} else {
+		h += mylogs.map(logLine).join("");
+	}
+	h += "</div>";
+	return h;
+}
+
+function refLink(doctype, name) {
+	if (!name) return "";
+	var slug = String(doctype || "").toLowerCase().replace(/ /g, "-");
+	return '<a class="reflink" target="_blank" rel="noopener" href="/app/' +
+		encodeURIComponent(slug) + "/" + encodeURIComponent(name) + '">' +
+		escapeHtml(doctype || "") + " " + escapeHtml(name) + "</a>";
 }
 
 function logLine(l) {
 	return "<div>" + fmtTime(l.event_time) + " — <b>" + escapeHtml(l.event_type) + "</b>" +
-		(l.reference_name ? " &middot; " + escapeHtml(l.reference_doctype || "") + " " + escapeHtml(l.reference_name) : "") +
+		(l.reference_name ? " &middot; " + refLink(l.reference_doctype, l.reference_name) : "") +
 		(l.remarks ? " &middot; " + escapeHtml(l.remarks) : "") +
 		(l.qty ? " &middot; qty " + l.qty : "") + "</div>";
 }
@@ -652,6 +782,7 @@ function fetchHistory(day) {
 function renderHistory(data) {
 	document.getElementById("counts").innerHTML = "";
 	document.getElementById("alertchip").style.display = "none";
+	document.getElementById("todaystrip").innerHTML = "";
 	var grid = document.getElementById("grid");
 	var empty = document.getElementById("empty");
 	grid.innerHTML = "";
@@ -659,6 +790,7 @@ function renderHistory(data) {
 	if (!cards.length) {
 		empty.textContent = "No tracked activity on " + data.day + ".";
 		empty.style.display = "block";
+		applyEmployeeFilter();
 		return;
 	}
 	empty.style.display = "none";
@@ -666,6 +798,7 @@ function renderHistory(data) {
 		var el = document.createElement("div");
 		el.className = "card WORKING";
 		el.setAttribute("data-employee", c.employee);
+		el.setAttribute("data-department", c.department || "");
 		var html = '<div class="top"><span class="name">' + escapeHtml(c.employee_name) + "</span></div>";
 		html += '<div class="livetimer">' + fmtMinutes(c.worked_minutes) + "</div>";
 		html += '<div class="desc">worked · ' + c.sessions + " sessions" + (c.qty ? " · " + c.qty + " qty" : "") + "</div>";
@@ -678,6 +811,7 @@ function renderHistory(data) {
 		el.innerHTML = html;
 		grid.appendChild(el);
 	});
+	applyEmployeeFilter();
 }
 
 function setHistory(day) {

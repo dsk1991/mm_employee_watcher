@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.9.0 - 2026-09-04
+
+- **Per-session drill-down.** Every row in the "Work sessions" table (Active
+  or Completed) gets a **View** button that expands that one session's own
+  track inline — its status/source/extension, a link to the referenced
+  document, and every Work Log entry tied specifically to it.
+- **Clickable references.** Session rows and activity-log lines now link
+  the referenced document (Sales Invoice, Payment Entry, ...) straight to
+  its Desk form in a new tab, instead of showing it as plain text.
+- **Today's company-wide totals** in the dashboard header: documents
+  created / submitted / reports viewed across every tracked employee today
+  (`get_dashboard_data` returns `today_totals`).
+- **Search + department filter** above the grid — type a name or pick a
+  department to narrow 30 cards down fast; survives the 30-second
+  auto-refresh and works in back-dated history mode too.
+
 ## 0.8.2 - 2026-09-04
 
 - **Fix: Desk navigation no longer auto-completes/switches work sessions.**

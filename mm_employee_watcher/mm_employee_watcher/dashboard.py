@@ -109,6 +109,9 @@ def get_dashboard_data():
 	)
 
 	now = now_datetime()
+	dept_by_employee = {
+		e.name: e.department for e in frappe.get_all("Employee", fields=["name", "department"])
+	}
 
 	# Today's Work Log event counts per employee, in one grouped query.
 	counts_by_employee = {}
@@ -131,6 +134,7 @@ def get_dashboard_data():
 		card = {
 			"employee": row.employee,
 			"employee_name": row.employee_name or row.employee,
+			"department": dept_by_employee.get(row.employee),
 			"status": row.status,
 			"since_minutes": (
 				max(0, int(time_diff_in_seconds(now, row.status_since) // 60)) if row.status_since else None
@@ -210,14 +214,22 @@ def get_dashboard_data():
 	cards.sort(key=lambda c: (STATUS_ORDER.get(c["status"], 9), c["employee_name"]))
 
 	counts = {}
+	today_totals = {"Document Created": 0, "Document Submitted": 0, "Report Viewed": 0}
 	for c in cards:
 		counts[c["status"]] = counts.get(c["status"], 0) + 1
+		for key in today_totals:
+			today_totals[key] += c["today_counts"].get(key, 0)
 
 	return {
 		"generated_at": now,
 		"cards": cards,
 		"counts": counts,
 		"open_alert_count": sum(len(v) for v in alerts_by_employee.values()),
+		"today_totals": {
+			"created": today_totals["Document Created"],
+			"submitted": today_totals["Document Submitted"],
+			"reports": today_totals["Report Viewed"],
+		},
 	}
 
 
@@ -274,6 +286,7 @@ def get_dashboard_history(day: str):
 			{
 				"employee": emp,
 				"employee_name": names.get(emp, emp),
+				"department": frappe.db.get_value("Employee", emp, "department"),
 				"worked_minutes": int(a["worked"] // 60),
 				"idle_minutes": int(a["idle"] // 60),
 				"break_minutes": int(a["brk"] // 60),

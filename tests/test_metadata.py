@@ -298,6 +298,24 @@ class MetadataTest(unittest.TestCase):
 		)
 		self.assertIn("mm_employee_watcher.api.record_desktop_activity", script)
 
+	def test_dashboard_per_session_view_and_totals(self):
+		impl = (
+			ROOT / "mm_employee_watcher" / "mm_employee_watcher" / "dashboard.py"
+		).read_text(encoding="utf-8")
+		self.assertIn("today_totals", impl)
+		page = (ROOT / "mm_employee_watcher" / "www" / "mm_dashboard.html").read_text(encoding="utf-8")
+		for token in (
+			"sess-view",
+			"sessionDetailHtml",
+			"today_totals",
+			"empfilter",
+			"deptfilter",
+			"applyEmployeeFilter",
+			"refLink",
+		):
+			self.assertIn(token, page)
+		self.assertIn('"department"', impl)
+
 	def test_migration_patch_registered(self):
 		patches = (ROOT / "mm_employee_watcher" / "patches.txt").read_text(encoding="utf-8")
 		self.assertIn("mm_employee_watcher.patches.v0_3_0_remove_sections", patches)
