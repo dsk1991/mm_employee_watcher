@@ -1,0 +1,163 @@
+{
+ "actions": [],
+ "autoname": "EWA-.#####",
+ "creation": "2026-09-04 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "employee",
+  "employee_name",
+  "department",
+  "alert_type",
+  "status",
+  "column_break_1",
+  "work_session",
+  "work_activity",
+  "raised_at",
+  "cleared_at",
+  "open_minutes",
+  "section_break_1",
+  "reason",
+  "notified_users"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Employee",
+   "options": "Employee",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fetch_from": "employee.employee_name",
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Employee Name",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "employee.department",
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Department",
+   "options": "Department",
+   "read_only": 1
+  },
+  {
+   "fieldname": "alert_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Alert Type",
+   "options": "Idle\nOverdue\nBlocked",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "default": "Open",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Open\nCleared",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "work_session",
+   "fieldtype": "Link",
+   "label": "Work Session",
+   "options": "Employee Work Session"
+  },
+  {
+   "fieldname": "work_activity",
+   "fieldtype": "Link",
+   "label": "Work Activity",
+   "options": "Work Activity Master"
+  },
+  {
+   "fieldname": "raised_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Raised At",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "cleared_at",
+   "fieldtype": "Datetime",
+   "label": "Cleared At"
+  },
+  {
+   "fieldname": "open_minutes",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Open Minutes"
+  },
+  {
+   "fieldname": "section_break_1",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Reason"
+  },
+  {
+   "fieldname": "notified_users",
+   "fieldtype": "Small Text",
+   "label": "Notified Users",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "MM Employee Watcher",
+ "name": "Employee Watcher Alert",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Employee Watcher Manager",
+   "write": 1
+  },
+  {
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Employee Watcher Viewer"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

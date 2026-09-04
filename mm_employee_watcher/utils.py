@@ -182,3 +182,34 @@ def get_employee_for_user(user: str | None = None):
 	without the employee having to pick themselves from a list."""
 	user = user or frappe.session.user
 	return frappe.db.get_value("Employee", {"user_id": user, "status": "Active"})
+
+
+ALERT_DEFAULTS = {
+	"alerts_enabled": 1,
+	"idle_alert_minutes": 15,
+	"overdue_alert_minutes": 30,
+	"blocked_alert_minutes": 20,
+}
+
+
+def get_watcher_settings():
+	"""MM Watcher Settings as a plain dict, with defaults applied and the
+	recipient user list resolved. Safe to call before the Single exists."""
+	try:
+		doc = frappe.get_cached_doc("MM Watcher Settings")
+	except Exception:
+		doc = None
+
+	out = dict(ALERT_DEFAULTS)
+	recipients = []
+	if doc:
+		for key in ALERT_DEFAULTS:
+			value = doc.get(key)
+			if value not in (None, ""):
+				out[key] = cint(value) if key != "alerts_enabled" else bool(cint(value))
+		recipients = [row.user for row in (doc.get("alert_recipients") or []) if row.user]
+	out["alerts_enabled"] = bool(cint(out["alerts_enabled"]))
+	out["recipients"] = [
+		u for u in recipients if frappe.db.get_value("User", u, "enabled")
+	]
+	return out

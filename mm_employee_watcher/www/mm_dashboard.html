@@ -177,13 +177,30 @@
 	.modal .tl { font-size: .84rem; color: var(--muted); }
 	.modal .tl > div { padding: 3px 0; border-bottom: 1px solid #21252e; }
 	.modal .tl b { color: var(--text); }
+	.card .alertbadge {
+		display: inline-block; margin-top: 6px; margin-right: 4px;
+		background: rgba(239,68,68,0.16); color: #fca5a5;
+		font-size: 0.7rem; font-weight: 700; padding: 2px 7px; border-radius: 5px;
+	}
+	.card.has-alert { border-left-color: var(--blocked); box-shadow: 0 0 0 1px rgba(239,68,68,.5), 0 2px 8px rgba(0,0,0,0.32); }
+	header .alertchip {
+		background: rgba(239,68,68,0.2); color: #fca5a5;
+		font-weight: 700; padding: 4px 12px; border-radius: 999px; font-size: 0.9rem;
+	}
+	header .alertchip.zero { background: rgba(107,114,128,0.2); color: var(--muted); }
+	.modal .kpis { display: flex; gap: 20px; flex-wrap: wrap; margin: 6px 0 4px; }
+	.modal .kpis .kpi { font-size: .85rem; color: var(--muted); }
+	.modal .kpis .kpi b { display: block; font-size: 1.3rem; color: var(--text); font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
 
 <header>
 	<h1>🟢 MM Employee Watcher</h1>
-	<div class="clock" id="clock">--:--:--</div>
+	<div style="display:flex;align-items:center;gap:16px;">
+		<span class="alertchip zero" id="alertchip">0 alerts</span>
+		<div class="clock" id="clock">--:--:--</div>
+	</div>
 </header>
 
 <div class="counts" id="counts"></div>
@@ -230,6 +247,11 @@ function render(data) {
 		countsEl.appendChild(pill);
 	});
 
+	var alertN = data.open_alert_count || 0;
+	var chip = document.getElementById("alertchip");
+	chip.textContent = alertN + (alertN === 1 ? " alert" : " alerts");
+	chip.className = "alertchip" + (alertN ? "" : " zero");
+
 	var grid = document.getElementById("grid");
 	var empty = document.getElementById("empty");
 	grid.innerHTML = "";
@@ -242,7 +264,8 @@ function render(data) {
 
 	data.cards.forEach(function (c) {
 		var el = document.createElement("div");
-		el.className = "card " + cardClass(c.status);
+		var alerts = c.open_alerts || [];
+		el.className = "card " + cardClass(c.status) + (alerts.length ? " has-alert" : "");
 		el.setAttribute("data-employee", c.employee);
 
 		var html = "";
@@ -250,6 +273,11 @@ function render(data) {
 		html += '<span class="name">' + escapeHtml(c.employee_name) + "</span>";
 		html += '<span class="status">' + (STATUS_LABEL[c.status] || c.status) + "</span>";
 		html += "</div>";
+
+		alerts.forEach(function (a) {
+			html += '<span class="alertbadge">⚠ ' + escapeHtml(a.type) +
+				(a.reason ? ": " + escapeHtml(a.reason) : "") + "</span>";
+		});
 
 		if ((c.status === "WORKING" || c.status === "BLOCKED") && c.target_end_time) {
 			html += '<div class="livetimer" data-end="' + escapeHtml(c.target_end_time) + '">--:--</div>';
@@ -363,9 +391,30 @@ function closeDetail() {
 function renderDetail(d) {
 	var h = '<span class="close" onclick="closeDetail()">&times;</span>';
 	h += "<h2>" + escapeHtml(d.employee_name) + "</h2>";
-	h += '<div class="sub">' + escapeHtml(STATUS_LABEL[d.status] || d.status || "") +
-		" &middot; " + fmtMinutes(d.worked_minutes) + " worked today &middot; " +
-		d.session_count + " work session" + (d.session_count === 1 ? "" : "s") + "</div>";
+	h += '<div class="sub">' + escapeHtml(STATUS_LABEL[d.status] || d.status || "") + " today</div>";
+
+	h += '<div class="kpis">' +
+		'<div class="kpi"><b>' + fmtMinutes(d.worked_minutes) + "</b>worked</div>" +
+		'<div class="kpi"><b>' + fmtMinutes(d.idle_minutes || 0) + "</b>idle</div>" +
+		'<div class="kpi"><b>' + fmtMinutes(d.blocked_minutes || 0) + "</b>blocked</div>" +
+		'<div class="kpi"><b>' + d.session_count + "</b>work sessions</div>" +
+		"</div>";
+
+	if ((d.alerts && d.alerts.length) || (d.blocked_reasons && d.blocked_reasons.length)) {
+		h += '<div class="sec-title">Alerts &amp; blockers</div><div class="tl">';
+		(d.alerts || []).forEach(function (a) {
+			h += "<div>" + fmtTime(a.raised_at) + " — <b>⚠ " + escapeHtml(a.alert_type) + "</b>" +
+				(a.reason ? " &middot; " + escapeHtml(a.reason) : "") +
+				" &middot; " + (a.status === "Open" ? "still open" : (fmtMinutes(a.open_minutes || 0) + " long")) + "</div>";
+		});
+		(d.blocked_reasons || []).forEach(function (b) {
+			h += "<div>Blocked " + fmtMinutes(b.minutes) + " — " + escapeHtml(b.reason) + "</div>";
+		});
+		if (!(d.alerts && d.alerts.length) && !(d.blocked_reasons && d.blocked_reasons.length)) {
+			h += "<div>None.</div>";
+		}
+		h += "</div>";
+	}
 
 	h += '<div class="sec-title">Work sessions</div>';
 	h += "<table><tr><th>Time</th><th>Activity</th><th>What they did</th><th>Qty</th><th>Status</th></tr>";

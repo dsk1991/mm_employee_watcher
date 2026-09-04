@@ -23,6 +23,9 @@ TRACKED_DOCTYPES = {
 	"Employee Work Log": "employee_work_log",
 	"Employee Work Queue": "employee_work_queue",
 	"Employee Current Status": "employee_current_status",
+	"Employee Watcher Alert": "employee_watcher_alert",
+	"MM Watcher Settings": "mm_watcher_settings",
+	"MM Watcher Alert Recipient": "mm_watcher_alert_recipient",
 }
 
 

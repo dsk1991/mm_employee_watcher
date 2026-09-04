@@ -51,6 +51,21 @@ mm_employee_watcher.init = function () {
 		mm_employee_watcher.check_status(true);
 		mm_employee_watcher.show_work_now_dialog();
 	});
+	// Supervisor alert toast — fires for the users listed in MM Watcher
+	// Settings, whether or not they are tracked employees themselves.
+	frappe.realtime.on("mm_employee_watcher:supervisor_alert", function (data) {
+		if (!data) return;
+		var label = { Idle: __("is idle"), Overdue: __("is over target time"), Blocked: __("is blocked") };
+		frappe.show_alert(
+			{
+				message: "⚠ " + frappe.utils.escape_html(data.employee_name || data.employee) + " " +
+					(label[data.alert_type] || data.alert_type) +
+					(data.reason ? " — " + frappe.utils.escape_html(data.reason) : ""),
+				indicator: "red",
+			},
+			12
+		);
+	});
 
 	// Keep the offline watchdog honest: this Desk tab counts as "alive"
 	// only while it's actually open.

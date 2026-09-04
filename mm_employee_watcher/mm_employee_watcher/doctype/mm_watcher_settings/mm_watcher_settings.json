@@ -1,0 +1,93 @@
+{
+ "actions": [],
+ "creation": "2026-09-04 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "alerts_enabled",
+  "section_break_thresholds",
+  "idle_alert_minutes",
+  "overdue_alert_minutes",
+  "blocked_alert_minutes",
+  "section_break_recipients",
+  "alert_recipients"
+ ],
+ "fields": [
+  {
+   "default": "1",
+   "fieldname": "alerts_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Supervisor Alerts"
+  },
+  {
+   "fieldname": "section_break_thresholds",
+   "fieldtype": "Section Break",
+   "label": "Alert Thresholds (minutes)"
+  },
+  {
+   "default": "15",
+   "description": "Raise an Idle alert when an employee has been IDLE this long.",
+   "fieldname": "idle_alert_minutes",
+   "fieldtype": "Int",
+   "label": "Idle Alert After (minutes)"
+  },
+  {
+   "default": "30",
+   "description": "Raise an Overdue alert when an active work session is past its target time by this long.",
+   "fieldname": "overdue_alert_minutes",
+   "fieldtype": "Int",
+   "label": "Overdue Alert After (minutes)"
+  },
+  {
+   "default": "20",
+   "description": "Raise a Blocked alert when a work session has stayed BLOCKED this long.",
+   "fieldname": "blocked_alert_minutes",
+   "fieldtype": "Int",
+   "label": "Blocked Alert After (minutes)"
+  },
+  {
+   "fieldname": "section_break_recipients",
+   "fieldtype": "Section Break",
+   "label": "Who gets alerts"
+  },
+  {
+   "description": "These users receive every supervisor alert (realtime toast + notification bell).",
+   "fieldname": "alert_recipients",
+   "fieldtype": "Table",
+   "label": "Alert Recipients",
+   "options": "MM Watcher Alert Recipient"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-09-04 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "MM Employee Watcher",
+ "name": "MM Watcher Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Employee Watcher Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

@@ -160,6 +160,29 @@ class MetadataTest(unittest.TestCase):
 		api = (ROOT / "mm_employee_watcher" / "api.py").read_text(encoding="utf-8")
 		self.assertIn("def record_screen_view", api)
 
+	def test_supervisor_alerts_wired(self):
+		hooks = (ROOT / "mm_employee_watcher" / "hooks.py").read_text(encoding="utf-8")
+		self.assertIn("raise_supervisor_alerts", hooks)
+		tasks = (ROOT / "mm_employee_watcher" / "tasks.py").read_text(encoding="utf-8")
+		self.assertIn("def raise_supervisor_alerts", tasks)
+		self.assertIn("Notification Log", tasks)
+		for folder in ("employee_watcher_alert", "mm_watcher_settings", "mm_watcher_alert_recipient"):
+			self.assertTrue((DOCTYPE_ROOT / folder).exists(), folder)
+		alert = load_doctype("employee_watcher_alert", "employee_watcher_alert.json")
+		fields = {f["fieldname"] for f in alert["fields"]}
+		self.assertTrue({"alert_type", "status", "raised_at", "cleared_at", "open_minutes"} <= fields)
+		self.assertIn("Idle", next(f for f in alert["fields"] if f["fieldname"] == "alert_type")["options"].splitlines())
+		settings = load_doctype("mm_watcher_settings", "mm_watcher_settings.json")
+		self.assertEqual(settings.get("issingle"), 1)
+		s_fields = {f["fieldname"] for f in settings["fields"]}
+		self.assertTrue({"alerts_enabled", "idle_alert_minutes", "alert_recipients"} <= s_fields)
+		utils = (ROOT / "mm_employee_watcher" / "utils.py").read_text(encoding="utf-8")
+		self.assertIn("def get_watcher_settings", utils)
+		script = (ROOT / "mm_employee_watcher" / "public" / "js" / "mm_employee_watcher.bundle.js").read_text(
+			encoding="utf-8"
+		)
+		self.assertIn("mm_employee_watcher:supervisor_alert", script)
+
 	def test_migration_patch_registered(self):
 		patches = (ROOT / "mm_employee_watcher" / "patches.txt").read_text(encoding="utf-8")
 		self.assertIn("mm_employee_watcher.patches.v0_3_0_remove_sections", patches)

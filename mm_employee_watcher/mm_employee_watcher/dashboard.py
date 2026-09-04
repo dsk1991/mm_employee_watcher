@@ -107,13 +107,31 @@ def get_dashboard_data():
 		card["today_counts"] = counts_by_employee.get(row.employee, {})
 		cards.append(card)
 
+	# Open supervisor alerts, per employee.
+	alerts_by_employee = {}
+	for a in frappe.get_all(
+		"Employee Watcher Alert",
+		filters={"status": "Open"},
+		fields=["employee", "alert_type", "reason"],
+	):
+		alerts_by_employee.setdefault(a.employee, []).append(
+			{"type": a.alert_type, "reason": a.reason}
+		)
+	for c in cards:
+		c["open_alerts"] = alerts_by_employee.get(c["employee"], [])
+
 	cards.sort(key=lambda c: (STATUS_ORDER.get(c["status"], 9), c["employee_name"]))
 
 	counts = {}
 	for c in cards:
 		counts[c["status"]] = counts.get(c["status"], 0) + 1
 
-	return {"generated_at": now, "cards": cards, "counts": counts}
+	return {
+		"generated_at": now,
+		"cards": cards,
+		"counts": counts,
+		"open_alert_count": sum(len(v) for v in alerts_by_employee.values()),
+	}
 
 
 @frappe.whitelist()
@@ -185,6 +203,37 @@ def get_employee_detail(employee: str, day: str | None = None):
 		limit=400,
 	)
 
+	# --- Blocked / Idle analysis for the day ---
+	asc_logs = sorted(logs, key=lambda x: x.event_time)
+	block_end = {"Unblocked", "Resume", "Complete", "Cancelled"}
+	idle_end = {"Idle End", "Complete", "Start"}
+	blocked_minutes = 0
+	idle_minutes = 0
+	blocked_reasons = {}
+	for idx, ev in enumerate(asc_logs):
+		if ev.event_type == "Blocked":
+			finish = next(
+				(e.event_time for e in asc_logs[idx + 1 :] if e.event_type in block_end),
+				now,
+			)
+			mins = max(0, int(time_diff_in_seconds(finish, ev.event_time) // 60))
+			blocked_minutes += mins
+			key = (ev.remarks or "No reason given").strip()
+			blocked_reasons[key] = blocked_reasons.get(key, 0) + mins
+		elif ev.event_type == "Idle Start":
+			finish = next(
+				(e.event_time for e in asc_logs[idx + 1 :] if e.event_type in idle_end),
+				now,
+			)
+			idle_minutes += max(0, int(time_diff_in_seconds(finish, ev.event_time) // 60))
+
+	alerts = frappe.get_all(
+		"Employee Watcher Alert",
+		filters={"employee": employee, "raised_at": ["between", [start, end]]},
+		fields=["alert_type", "status", "raised_at", "cleared_at", "open_minutes", "reason"],
+		order_by="raised_at desc",
+	)
+
 	return {
 		"employee": employee,
 		"employee_name": status.get("employee_name") or employee,
@@ -195,4 +244,11 @@ def get_employee_detail(employee: str, day: str | None = None):
 		"session_count": len(sessions),
 		"sessions": sessions,
 		"logs": logs,
+		"alerts": alerts,
+		"blocked_minutes": blocked_minutes,
+		"idle_minutes": idle_minutes,
+		"blocked_reasons": [
+			{"reason": k, "minutes": v}
+			for k, v in sorted(blocked_reasons.items(), key=lambda kv: -kv[1])
+		],
 	}
