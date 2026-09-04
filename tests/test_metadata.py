@@ -267,6 +267,23 @@ class MetadataTest(unittest.TestCase):
 		self.assertIn('"default": "0"', install)
 		self.assertNotIn('"default": "1"', install.split("mm_tracking_enabled")[1][:400])
 
+	def test_no_quadratic_pairing_and_batched_purge(self):
+		utils = (ROOT / "mm_employee_watcher" / "utils.py").read_text(encoding="utf-8")
+		self.assertIn("def pair_state_durations", utils)
+		for rel in (
+			"mm_employee_watcher/mm_employee_watcher/dashboard.py",
+			"mm_employee_watcher/mm_employee_watcher/report/employee_work_report/employee_work_report.py",
+		):
+			src = (ROOT / rel).read_text(encoding="utf-8")
+			self.assertIn("pair_state_durations", src)
+			self.assertNotIn("for x in elogs[idx", src)  # the old O(n^2) scan
+		tasks = (ROOT / "mm_employee_watcher" / "tasks.py").read_text(encoding="utf-8")
+		self.assertIn("_batched_delete", tasks)
+		self.assertIn("LIMIT", tasks)
+		log = load_doctype("employee_work_log", "employee_work_log.json")
+		et = next(f for f in log["fields"] if f["fieldname"] == "event_time")
+		self.assertEqual(et.get("search_index"), 1)
+
 	def test_migration_patch_registered(self):
 		patches = (ROOT / "mm_employee_watcher" / "patches.txt").read_text(encoding="utf-8")
 		self.assertIn("mm_employee_watcher.patches.v0_3_0_remove_sections", patches)

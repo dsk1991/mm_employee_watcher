@@ -8,11 +8,8 @@ import frappe
 from frappe import _
 from frappe.utils import get_datetime, getdate, now_datetime, time_diff_in_seconds, today
 
-from mm_employee_watcher.utils import is_tracking_enabled
+from mm_employee_watcher.utils import is_tracking_enabled, pair_state_durations
 
-BLOCK_END = {"Unblocked", "Resume", "Complete", "Cancelled"}
-IDLE_END = {"Idle End", "Complete", "Start"}
-BREAK_END = {"Break End", "Start", "Complete"}
 ONGOING = ("Active", "Extended", "Paused", "Blocked")
 
 # WORKING/BLOCKED employees are the ones a supervisor most needs to see
@@ -260,16 +257,10 @@ def get_dashboard_history(day: str):
 	for emp, elogs in logs_by_emp.items():
 		names.setdefault(emp, frappe.db.get_value("Employee", emp, "employee_name") or emp)
 		a = agg.setdefault(emp, {"worked": 0.0, "idle": 0.0, "brk": 0.0, "blocked": 0.0, "sessions": 0, "qty": 0.0})
-		for idx, ev in enumerate(elogs):
-			if ev.event_type == "Blocked":
-				fin = next((x.event_time for x in elogs[idx + 1:] if x.event_type in BLOCK_END), cap)
-				a["blocked"] += max(0, time_diff_in_seconds(fin, ev.event_time))
-			elif ev.event_type == "Idle Start":
-				fin = next((x.event_time for x in elogs[idx + 1:] if x.event_type in IDLE_END), cap)
-				a["idle"] += max(0, time_diff_in_seconds(fin, ev.event_time))
-			elif ev.event_type == "Break Start":
-				fin = next((x.event_time for x in elogs[idx + 1:] if x.event_type in BREAK_END), cap)
-				a["brk"] += max(0, time_diff_in_seconds(fin, ev.event_time))
+		d = pair_state_durations(elogs, cap)
+		a["idle"] += d["idle"]
+		a["brk"] += d["break"]
+		a["blocked"] += d["blocked"]
 
 	cards = []
 	for emp, a in agg.items():
@@ -360,37 +351,13 @@ def get_employee_detail(employee: str, day: str | None = None):
 		limit=400,
 	)
 
-	# --- Blocked / Idle / Break analysis for the day ---
-	asc_logs = sorted(logs, key=lambda x: x.event_time)
-	block_end = {"Unblocked", "Resume", "Complete", "Cancelled"}
-	idle_end = {"Idle End", "Complete", "Start"}
-	break_end = {"Break End", "Start", "Complete"}
-	blocked_minutes = 0
-	idle_minutes = 0
-	break_minutes = 0
-	blocked_reasons = {}
-	for idx, ev in enumerate(asc_logs):
-		if ev.event_type == "Blocked":
-			finish = next(
-				(e.event_time for e in asc_logs[idx + 1 :] if e.event_type in block_end),
-				now,
-			)
-			mins = max(0, int(time_diff_in_seconds(finish, ev.event_time) // 60))
-			blocked_minutes += mins
-			key = (ev.remarks or "No reason given").strip()
-			blocked_reasons[key] = blocked_reasons.get(key, 0) + mins
-		elif ev.event_type == "Idle Start":
-			finish = next(
-				(e.event_time for e in asc_logs[idx + 1 :] if e.event_type in idle_end),
-				now,
-			)
-			idle_minutes += max(0, int(time_diff_in_seconds(finish, ev.event_time) // 60))
-		elif ev.event_type == "Break Start":
-			finish = next(
-				(e.event_time for e in asc_logs[idx + 1 :] if e.event_type in break_end),
-				now,
-			)
-			break_minutes += max(0, int(time_diff_in_seconds(finish, ev.event_time) // 60))
+	# --- Blocked / Idle / Break analysis for the day (single pass) ---
+	cap = min(now, get_datetime(end))
+	d = pair_state_durations(sorted(logs, key=lambda x: x.event_time), cap)
+	idle_minutes = int(d["idle"] // 60)
+	break_minutes = int(d["break"] // 60)
+	blocked_minutes = int(d["blocked"] // 60)
+	blocked_reasons = {r: int(s // 60) for r, s in d["blocked_reasons"].items() if s >= 60}
 
 	alerts = frappe.get_all(
 		"Employee Watcher Alert",

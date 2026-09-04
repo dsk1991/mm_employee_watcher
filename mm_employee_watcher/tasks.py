@@ -376,34 +376,40 @@ def _schedule_employees(sch):
 # Retention
 # ---------------------------------------------------------------------------
 
+def _batched_delete(doctype, where, params, batches=200, size=5000):
+	"""Delete in bounded chunks so a first run on a long-neglected table
+	never holds one giant lock / blows up the binlog."""
+	table = f"tab{doctype}"
+	for _i in range(batches):
+		frappe.db.sql(f"DELETE FROM `{table}` WHERE {where} LIMIT {size}", params)
+		frappe.db.commit()
+		more = frappe.db.sql(f"SELECT 1 FROM `{table}` WHERE {where} LIMIT 1", params)
+		if not more:
+			break
+
+
 def purge_old_records():
 	"""Keep the noisy tables from growing forever. Thresholds live in
 	MM Watcher Settings (0 = keep forever)."""
 	settings = get_watcher_settings()
+	now = now_datetime()
 
 	log_days = int(settings.get("log_retention_days") or 0)
 	if log_days > 0:
-		frappe.db.delete(
-			"Employee Work Log",
-			{"event_time": ["<", add_days(now_datetime(), -log_days)]},
+		_batched_delete(
+			"Employee Work Log", "event_time < %s", (add_days(now, -log_days),)
 		)
 
 	alert_days = int(settings.get("alert_retention_days") or 0)
 	if alert_days > 0:
-		frappe.db.delete(
+		_batched_delete(
 			"Employee Watcher Alert",
-			{
-				"status": "Cleared",
-				"cleared_at": ["<", add_days(now_datetime(), -alert_days)],
-			},
+			"status = 'Cleared' AND cleared_at < %s",
+			(add_days(now, -alert_days),),
 		)
 
-	# Finished queue items older than 60 days are just clutter.
-	frappe.db.delete(
+	_batched_delete(
 		"Employee Work Queue",
-		{
-			"status": ["in", ["Completed", "Cancelled"]],
-			"modified": ["<", add_days(now_datetime(), -60)],
-		},
+		"status IN ('Completed', 'Cancelled') AND modified < %s",
+		(add_days(now, -60),),
 	)
-	frappe.db.commit()

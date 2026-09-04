@@ -6,7 +6,7 @@ transitions and realtime notifications.
 """
 
 import frappe
-from frappe.utils import now_datetime, add_to_date, cint
+from frappe.utils import now_datetime, add_to_date, cint, get_datetime, time_diff_in_seconds
 
 from mm_employee_watcher.state_machine import (
 	OPEN_SESSION_STATUSES,
@@ -183,6 +183,61 @@ def get_employee_for_user(user: str | None = None):
 	without the employee having to pick themselves from a list."""
 	user = user or frappe.session.user
 	return frappe.db.get_value("Employee", {"user_id": user, "status": "Active"})
+
+
+# Work Log event types that end an open Idle / Break / Blocked stretch.
+_END_EVENTS = {
+	"idle": {"Idle End", "Complete", "Start"},
+	"break": {"Break End", "Start", "Complete"},
+	"blocked": {"Unblocked", "Resume", "Complete", "Cancelled"},
+}
+
+
+def pair_state_durations(logs, cap):
+	"""Single pass over an ASC-sorted list of Work Log rows (each with
+	`event_type`, `event_time` and optionally `remarks`). Returns seconds
+	spent Idle / on Break / Blocked plus blocked seconds grouped by reason,
+	capping any still-open stretch at `cap`. O(n), not O(n^2)."""
+	cap = get_datetime(cap)
+	open_since = {"idle": None, "break": None, "blocked": None}
+	open_reason = {}
+	totals = {"idle": 0.0, "break": 0.0, "blocked": 0.0}
+	reasons = {}
+
+	def close(kind, at):
+		start = open_since[kind]
+		if start is None:
+			return
+		secs = max(0, time_diff_in_seconds(at, start))
+		totals[kind] += secs
+		if kind == "blocked":
+			reason = open_reason.get("blocked") or "No reason given"
+			reasons[reason] = reasons.get(reason, 0) + secs
+		open_since[kind] = None
+
+	for row in logs:
+		et = row.get("event_type") if hasattr(row, "get") else row["event_type"]
+		at = get_datetime(row.get("event_time") if hasattr(row, "get") else row["event_time"])
+		if et == "Idle Start" and open_since["idle"] is None:
+			open_since["idle"] = at
+		elif et == "Break Start" and open_since["break"] is None:
+			open_since["break"] = at
+		elif et == "Blocked" and open_since["blocked"] is None:
+			open_since["blocked"] = at
+			open_reason["blocked"] = (row.get("remarks") if hasattr(row, "get") else None) or None
+		for kind, enders in _END_EVENTS.items():
+			if et in enders:
+				close(kind, at)
+
+	for kind in open_since:
+		close(kind, cap)
+
+	return {
+		"idle": totals["idle"],
+		"break": totals["break"],
+		"blocked": totals["blocked"],
+		"blocked_reasons": reasons,
+	}
 
 
 ALERT_DEFAULTS = {

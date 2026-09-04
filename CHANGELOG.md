@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.1 - 2026-09-04
+
+- Performance hardening (no behaviour change):
+  - `Employee Work Log.event_time` gets a `search_index` — the dashboard's
+    30-second grouped query, the report, and the purge job all filter on it.
+  - The idle/break/blocked pairing is now a single O(n) pass
+    (`utils.pair_state_durations`), shared by the drill-down, the back-dated
+    dashboard, and `Employee Work Report` (which was O(n²)). The report also
+    caps its date range at 92 days.
+  - `purge_old_records` deletes in 5 000-row batches with a commit between,
+    so the first run on a long-neglected table never takes one giant lock.
+
 ## 0.8.0 - 2026-09-04
 
 - **Tracking is now opt-in.** `is_tracking_enabled` returns True only when
