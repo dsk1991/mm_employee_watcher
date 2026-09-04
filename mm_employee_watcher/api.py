@@ -677,8 +677,12 @@ def record_desktop_activity(
 	reference_name: str | None = None,
 	description: str | None = None,
 ):
-	"""Aggregate meaningful Desk activity into the employee's current work
-	session, opening one for that activity if none is running."""
+	"""Passive audit trail for Desk navigation (Sales Invoice / Payment Entry
+	/ report screens). This never creates, switches, or completes a work
+	session — only the employee's own explicit Start Work / End Work does
+	that. It just writes one Employee Work Log row, attached to whatever
+	session (if any) is currently open, so clicking around Desk can't spawn
+	a flood of auto-completed sessions."""
 	if action not in ALLOWED_DESKTOP_EVENTS:
 		frappe.throw(_("Unsupported desktop activity event"))
 	employee = _get_employee_for_user()
@@ -699,40 +703,27 @@ def record_desktop_activity(
 			return {"tracking": True, "duplicate": True}
 
 	work = get_active_session(employee)
-	if work and work.work_activity != work_activity:
-		if work.status in {SESSION_PAUSED, SESSION_BLOCKED}:
-			return {
-				"tracking": True,
-				"work_conflict": True,
-				"current_work": work.work_activity,
-			}
-		_complete_session(work, remarks=_("Automatically changed Desk activity"))
-		work = None
+	matching = work if (work and work.work_activity == work_activity) else None
 
-	if not work:
-		work = _create_session(
-			employee,
-			work_activity,
-			source_app="ERPNext",
-			description=description,
-		)
-
-	if action == "Document Submitted":
-		work.completed_qty = flt(work.completed_qty) + 1
-		work.save(ignore_permissions=True)
+	if matching and action == "Document Submitted":
+		matching.completed_qty = flt(matching.completed_qty) + 1
+		matching.save(ignore_permissions=True)
 
 	log_event(
 		employee,
-		work.name,
+		matching.name if matching else None,
 		action,
-		qty=work.completed_qty if action == "Document Submitted" else None,
+		qty=matching.completed_qty if (matching and action == "Document Submitted") else None,
 		remarks=description,
 		source_app="ERPNext",
 		reference_doctype=reference_doctype if reference_name else None,
 		reference_name=reference_name,
 	)
-	publish_status(employee)
-	return {"tracking": True, "work_session": work.name, "completed_qty": work.completed_qty}
+	return {
+		"tracking": True,
+		"work_session": matching.name if matching else None,
+		"completed_qty": matching.completed_qty if matching else None,
+	}
 
 
 def record_document_activity(doc, method=None):

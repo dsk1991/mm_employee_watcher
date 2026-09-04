@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.2 - 2026-09-04
+
+- **Fix: Desk navigation no longer auto-completes/switches work sessions.**
+  Opening a Sales Invoice, Payment Entry, or report screen used to complete
+  the employee's active session ("Automatically changed Desk activity") and
+  start a new one for every screen visited, flooding the drill-down with a
+  stream of near-zero-minute "Completed" sessions. `record_desktop_activity`
+  is now purely a passive Employee Work Log entry — it attaches
+  Document Created/Submitted counts to the current session only when its
+  activity already matches, and never creates, switches, or completes
+  anything. Only the employee's own explicit Start Work / End Work does
+  that now.
+
 ## 0.8.1 - 2026-09-04
 
 - Performance hardening (no behaviour change):

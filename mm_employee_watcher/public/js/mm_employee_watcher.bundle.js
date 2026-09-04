@@ -898,9 +898,7 @@ mm_employee_watcher.bind_desktop_activity_tracking = function () {
 				reference_name: referenceName,
 				description: description,
 			},
-			callback: function () {
-				mm_employee_watcher.check_status(true);
-			},
+			freeze: false,
 		});
 	}
 	frappe.router.on("change", trackRoute);

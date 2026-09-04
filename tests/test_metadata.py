@@ -284,6 +284,20 @@ class MetadataTest(unittest.TestCase):
 		et = next(f for f in log["fields"] if f["fieldname"] == "event_time")
 		self.assertEqual(et.get("search_index"), 1)
 
+	def test_desktop_navigation_never_switches_sessions(self):
+		api = (ROOT / "mm_employee_watcher" / "api.py").read_text(encoding="utf-8")
+		fn = api.split("def record_desktop_activity")[1].split("\ndef ")[0]
+		# Desk navigation must not auto-complete/switch/create the employee's
+		# work session any more — only their explicit Start/End Work does.
+		self.assertNotIn("Automatically changed Desk activity", fn)
+		self.assertNotIn("_complete_session(", fn)
+		self.assertNotIn("_create_session(", fn)
+		self.assertIn("matching", fn)
+		script = (ROOT / "mm_employee_watcher" / "public" / "js" / "mm_employee_watcher.bundle.js").read_text(
+			encoding="utf-8"
+		)
+		self.assertIn("mm_employee_watcher.api.record_desktop_activity", script)
+
 	def test_migration_patch_registered(self):
 		patches = (ROOT / "mm_employee_watcher" / "patches.txt").read_text(encoding="utf-8")
 		self.assertIn("mm_employee_watcher.patches.v0_3_0_remove_sections", patches)
