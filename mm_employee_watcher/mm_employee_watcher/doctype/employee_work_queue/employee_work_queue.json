@@ -11,7 +11,10 @@
   "column_break_1",
   "target_qty",
   "reference_doctype",
-  "reference_name"
+  "reference_name",
+  "schedule",
+  "for_date",
+  "instructions"
  ],
  "fields": [
   {
@@ -70,6 +73,23 @@
    "fieldtype": "Dynamic Link",
    "label": "Reference Name",
    "options": "reference_doctype"
+  },
+  {
+   "fieldname": "schedule",
+   "fieldtype": "Link",
+   "label": "Created by Schedule",
+   "options": "Work Queue Schedule",
+   "read_only": 1
+  },
+  {
+   "fieldname": "for_date",
+   "fieldtype": "Date",
+   "label": "For Date"
+  },
+  {
+   "fieldname": "instructions",
+   "fieldtype": "Small Text",
+   "label": "Instructions"
   }
  ],
  "index_web_pages_for_search": 1,

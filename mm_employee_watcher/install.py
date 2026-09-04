@@ -26,6 +26,8 @@ TRACKED_DOCTYPES = {
 	"Employee Watcher Alert": "employee_watcher_alert",
 	"MM Watcher Settings": "mm_watcher_settings",
 	"MM Watcher Alert Recipient": "mm_watcher_alert_recipient",
+	"Work Queue Schedule": "work_queue_schedule",
+	"Work Queue Schedule Assignee": "work_queue_schedule_assignee",
 }
 
 

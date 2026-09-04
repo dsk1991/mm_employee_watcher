@@ -17,7 +17,7 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
 
 - DocTypes: `Work Activity Master`, `Employee Work Session`,
   `Employee Current Status`, `Employee Work Log`, `Employee Work Queue`,
-  `Employee Watcher Alert`, `MM Watcher Settings`
+  `Employee Watcher Alert`, `MM Watcher Settings`, `Work Queue Schedule`
 - **One flat work session per employee.** There is no "section" to start
   first — the employee just declares what work they are doing.
 - Server-side rule: one Primary Active Work per employee at a time,
@@ -62,6 +62,17 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
   `Employee Work Queue` and auto-starts the next pending item for that
   employee — no idle gap. Only when the queue is empty does the employee go
   `IDLE` and get the forced "Work Now" popup.
+- **Pick from the queue.** An idle employee's widget lists their pending
+  `Employee Work Queue` items with per-task Start buttons; the forced popup
+  has a "Pick from your queue" selector (`get_my_queue` / `start_queue_item`).
+- **`Work Queue Schedule`.** A recurring template — Daily / Weekly (by
+  weekday) / Monthly (by day-of-month, e.g. the 1st) / Specific Dates — that
+  an hourly job turns into queue items (once per schedule per day) for its
+  assignees or a whole department, carrying instructions and a target qty.
+- **Timed breaks.** "I'm on a break" asks for a duration; once it passes the
+  employee is flipped back to `IDLE` (dated from when the break should have
+  ended) so the idle nag and supervisor alert fire immediately. The widget
+  shows a break countdown with a Resume Work button.
 - Sales Invoice and Payment Entry create/submit events are recorded
   automatically into the employee's current work session. Opening Sales
   Invoice, Payment Entry, or a report also aggregates activity into (or

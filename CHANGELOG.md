@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.5.0 - 2026-09-04
+
+- **Employees pick their own work.** `get_my_queue` returns everything
+  pending in an employee's `Employee Work Queue`; the widget's idle panel
+  lists it with per-task **Start** buttons, and the forced "Work Now" popup
+  has a "Pick from your queue" selector. `start_queue_item` starts one
+  chosen task and marks the queue row.
+- **`Work Queue Schedule` DocType.** A recurring template (Daily / Weekly by
+  weekday / Monthly by day-of-month / Specific Dates) that a new hourly job
+  (`build_scheduled_queues`, once per schedule per day) turns into queue
+  items for its assignees (a table, or a whole department). Carries
+  instructions, target qty, priority, and an optional reference. New
+  `Employee Work Queue` fields: `schedule`, `for_date`, `instructions`.
+- **Break overrun → IDLE.** `mark_break` now takes a planned `minutes` and
+  stores `Employee Current Status.break_until`. `check_break_overrun` (per
+  minute) flips an employee who is past that time back to IDLE — dated from
+  when the break should have ended — so the idle nag and supervisor alert
+  fire straight away. The widget shows a dedicated break panel with a
+  countdown and a **Resume Work** button.
+- Dashboard cards show a "N pending" count.
+
 ## 0.4.0 - 2026-09-04
 
 - **Supervisor alerts.** A per-minute job (`raise_supervisor_alerts`) opens

@@ -497,10 +497,13 @@ def mark_blocked(work_session: str, reason: str):
 
 
 @frappe.whitelist()
-def mark_break(employee: str | None = None, reason: str | None = None):
+def mark_break(employee: str | None = None, reason: str | None = None, minutes: int | None = None):
 	"""Authorized lunch/tea break — a distinct state from IDLE. Also the
-	escape hatch from the forced 'Work Now' popup."""
+	escape hatch from the forced 'Work Now' popup. `minutes` is the planned
+	break length; once it passes, check_break_overrun() flips the employee to
+	IDLE so the idle nag/alert takes over."""
 	employee = _get_employee_for_user(employee)
+	minutes = cint(minutes) or 15
 	session = get_active_session(employee)
 	if session and session.status in {SESSION_ACTIVE, SESSION_EXTENDED}:
 		session.status = SESSION_PAUSED
@@ -512,11 +515,71 @@ def mark_break(employee: str | None = None, reason: str | None = None):
 		employee,
 		session.name if session else None,
 		"Break Start",
-		remarks=reason or _("Authorized break"),
+		remarks=_("{0} ({1} min)").format(reason or _("Authorized break"), minutes),
 		source_app="ERPNext",
 	)
 	set_status(employee, STATUS_BREAK, session.name if session else None)
-	return {"ok": True}
+	break_until = add_to_date(now_datetime(), minutes=minutes)
+	frappe.db.set_value(
+		"Employee Current Status",
+		{"employee": employee},
+		"break_until",
+		break_until,
+		update_modified=False,
+	)
+	return {"ok": True, "break_until": break_until, "minutes": minutes}
+
+
+@frappe.whitelist()
+def get_my_queue(employee: str | None = None):
+	"""Everything still pending in this employee's work queue, so they can
+	see what's assigned and pick the next task themselves."""
+	employee = _get_employee_for_user(employee)
+	return frappe.get_all(
+		"Employee Work Queue",
+		filters={"employee": employee, "status": ["in", ["Pending", "Assigned"]]},
+		fields=[
+			"name",
+			"work_activity",
+			"target_qty",
+			"priority",
+			"status",
+			"instructions",
+			"reference_doctype",
+			"reference_name",
+			"for_date",
+			"schedule",
+		],
+		order_by="priority desc, for_date asc, creation asc",
+	)
+
+
+@frappe.whitelist()
+def start_queue_item(queue_item: str, target_minutes: int | None = None):
+	"""Start one specific queued task the employee picked."""
+	employee = _get_employee_for_user()
+	item = frappe.get_doc("Employee Work Queue", queue_item)
+	if item.employee != employee and not _has_manager_role():
+		frappe.throw(_("This queue item belongs to another employee"), frappe.PermissionError)
+	if item.status not in ("Pending", "Assigned"):
+		frappe.throw(_("This queue item is already {0}").format(item.status))
+	if not is_tracking_enabled(employee):
+		frappe.throw(_("Work tracking is disabled for this user"))
+	if get_active_session(employee):
+		frappe.throw(_("Finish your current work before starting a queued task"))
+
+	session = _create_session(
+		employee,
+		item.work_activity,
+		target_qty=item.target_qty,
+		minutes=target_minutes,
+		reference_doctype=item.reference_doctype,
+		reference_name=item.reference_name,
+		description=(item.instructions or item.work_activity),
+		queue_item=item.name,
+	)
+	frappe.db.set_value("Employee Work Queue", item.name, "status", "Assigned")
+	return session.as_dict()
 
 
 @frappe.whitelist()
@@ -593,6 +656,7 @@ def get_my_status(employee: str | None = None):
 		"status": status_doc.status,
 		"current_session": status_doc.current_session,
 		"status_since": status_doc.status_since,
+		"break_until": status_doc.break_until,
 	}
 
 	result = {"employee": employee, "tracking": tracking, **status}

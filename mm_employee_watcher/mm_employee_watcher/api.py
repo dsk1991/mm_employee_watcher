@@ -24,6 +24,8 @@ mark_break = _api.mark_break
 record_document_activity = _api.record_document_activity
 record_screen_view = _api.record_screen_view
 get_next_work = _api.get_next_work
+get_my_queue = _api.get_my_queue
+start_queue_item = _api.start_queue_item
 
 __all__ = [
 	"heartbeat",
@@ -38,4 +40,6 @@ __all__ = [
 	"mark_break",
 	"record_document_activity",
 	"get_next_work",
+	"get_my_queue",
+	"start_queue_item",
 ]

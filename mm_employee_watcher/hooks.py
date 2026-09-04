@@ -52,15 +52,20 @@ doc_events = {
 
 scheduler_events = {
 	"cron": {
-		# every minute: notify once for sessions whose target_end_time has passed,
-		# and open/clear supervisor Idle/Overdue/Blocked alerts
+		# every minute: session-expiry alerts, supervisor Idle/Overdue/Blocked
+		# alerts, and break-overrun -> IDLE
 		"* * * * *": [
 			"mm_employee_watcher.tasks.check_expired_sessions",
 			"mm_employee_watcher.tasks.raise_supervisor_alerts",
+			"mm_employee_watcher.tasks.check_break_overrun",
 		],
 		# every 5 minutes: mark employees with a stale heartbeat as OFFLINE
 		"*/5 * * * *": [
 			"mm_employee_watcher.tasks.check_offline_employees",
+		],
+		# hourly: build queue items from due Work Queue Schedules (once/day each)
+		"0 * * * *": [
+			"mm_employee_watcher.tasks.build_scheduled_queues",
 		],
 	},
 }

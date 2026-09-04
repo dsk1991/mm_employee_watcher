@@ -317,6 +317,9 @@ function render(data) {
 			footBits.push((STATUS_LABEL[c.status] || c.status) + " " + fmtMinutes(c.since_minutes));
 		}
 
+		if (c.queue_pending) {
+			footBits.push(c.queue_pending + " pending");
+		}
 		if (footBits.length) {
 			html += '<div class="footline"><span>' + footBits.join(" · ") + "</span></div>";
 		}

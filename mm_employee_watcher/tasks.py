@@ -9,14 +9,17 @@ raise_supervisor_alerts  -> per-minute sweep that opens/clears Employee
                              and notifies the configured recipients.
 """
 
+import calendar
+
 import frappe
 from frappe import _
-from frappe.utils import now_datetime, get_datetime, time_diff_in_seconds
+from frappe.utils import now_datetime, get_datetime, getdate, time_diff_in_seconds
 
 from mm_employee_watcher.utils import (
 	STATUS_IDLE,
 	STATUS_OFFLINE,
 	STATUS_WORKING,
+	STATUS_BREAK,
 	STATUS_BLOCKED,
 	SESSION_ACTIVE,
 	SESSION_EXTENDED,
@@ -258,3 +261,112 @@ def _notify_alert(alert, recipients):
 			user=user,
 		)
 	frappe.publish_realtime(event="mm_employee_watcher:dashboard_update", message={"alert": alert.name})
+
+
+# ---------------------------------------------------------------------------
+# Break overrun -> IDLE
+# ---------------------------------------------------------------------------
+
+def check_break_overrun():
+	"""An employee who booked a 30-min break but is 45 min in (and hasn't
+	started work) should not keep showing as BREAK. Flip them to IDLE, dated
+	from when the break was meant to end, so the idle nag + supervisor alert
+	take over immediately."""
+	now = now_datetime()
+	rows = frappe.get_all(
+		"Employee Current Status",
+		filters={"status": STATUS_BREAK, "break_until": ["<", now]},
+		fields=["name", "employee", "current_session", "break_until"],
+	)
+	for row in rows:
+		if not is_tracking_enabled(row.employee):
+			continue
+		set_status(row.employee, STATUS_IDLE, row.current_session)
+		frappe.db.set_value(
+			"Employee Current Status",
+			row.name,
+			{"idle_since": row.break_until, "break_until": None},
+			update_modified=False,
+		)
+		if row.current_session:
+			log_event(row.employee, row.current_session, "Idle Start", remarks=_("Break overrun"))
+		user = frappe.db.get_value("Employee", row.employee, "user_id")
+		if user:
+			frappe.publish_realtime(
+				event="mm_employee_watcher:work_required",
+				message={"message": _("Your break time is over — start work")},
+				user=user,
+			)
+
+
+# ---------------------------------------------------------------------------
+# Scheduled work queues
+# ---------------------------------------------------------------------------
+
+def build_scheduled_queues():
+	"""Turn each due Work Queue Schedule into Employee Work Queue items for
+	its assignees. Runs hourly but every schedule fires at most once per
+	day (last_run_date guard), so a missed run still catches up."""
+	today = getdate()
+	for name in frappe.get_all("Work Queue Schedule", filters={"enabled": 1}, pluck="name"):
+		sch = frappe.get_doc("Work Queue Schedule", name)
+		if sch.last_run_date and getdate(sch.last_run_date) == today:
+			continue
+		if not _schedule_due(sch, today):
+			continue
+
+		for employee in _schedule_employees(sch):
+			if not is_tracking_enabled(employee):
+				continue
+			if frappe.db.exists(
+				"Employee Work Queue",
+				{"employee": employee, "schedule": sch.name, "for_date": today},
+			):
+				continue
+			frappe.get_doc(
+				{
+					"doctype": "Employee Work Queue",
+					"employee": employee,
+					"work_activity": sch.work_activity,
+					"target_qty": sch.target_qty,
+					"priority": sch.priority,
+					"status": "Pending",
+					"schedule": sch.name,
+					"for_date": today,
+					"instructions": sch.instructions,
+					"reference_doctype": sch.reference_doctype,
+					"reference_name": sch.reference_name,
+				}
+			).insert(ignore_permissions=True)
+
+		frappe.db.set_value(
+			"Work Queue Schedule", sch.name, "last_run_date", today, update_modified=False
+		)
+
+
+def _schedule_due(sch, day):
+	if sch.recurrence == "Daily":
+		return True
+	if sch.recurrence == "Weekly":
+		return day.strftime("%A") == sch.weekday
+	if sch.recurrence == "Monthly":
+		last_day = calendar.monthrange(day.year, day.month)[1]
+		return day.day == min(max(1, int(sch.day_of_month or 1)), last_day)
+	if sch.recurrence == "Specific Dates":
+		wanted = {
+			line.strip()
+			for line in (sch.specific_dates or "").splitlines()
+			if line.strip()
+		}
+		return day.isoformat() in wanted or str(day) in wanted
+	return False
+
+
+def _schedule_employees(sch):
+	if sch.department:
+		return frappe.get_all(
+			"Employee",
+			filters={"department": sch.department, "status": "Active"},
+			pluck="name",
+		)
+	return [row.employee for row in (sch.assignees or []) if row.employee]

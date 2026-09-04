@@ -118,18 +118,34 @@ mm_employee_watcher.check_status = function (silent) {
 			}
 			mm_employee_watcher._tracking_active = true;
 			mm_employee_watcher._status = status;
-			mm_employee_watcher.render_widget(status);
 
-			if (status.expired && status.session) {
-				mm_employee_watcher.show_expiry_dialog({
-					work_session: status.session.name,
-					work_activity: status.session.work_activity,
-					target_qty: status.session.target_qty,
-					completed_qty: status.session.completed_qty,
-					target_end_time: status.session.target_end_time,
+			function finish() {
+				mm_employee_watcher.render_widget(status);
+				if (status.expired && status.session) {
+					mm_employee_watcher.show_expiry_dialog({
+						work_session: status.session.name,
+						work_activity: status.session.work_activity,
+						target_qty: status.session.target_qty,
+						completed_qty: status.session.completed_qty,
+						target_end_time: status.session.target_end_time,
+					});
+				} else if (!status.current_session && status.status === "IDLE" && !silent) {
+					mm_employee_watcher.show_work_now_dialog();
+				}
+			}
+
+			// Idle employees see their pending queue, so refresh it before rendering.
+			if (status.status === "IDLE" && !status.current_session) {
+				frappe.call({
+					method: "mm_employee_watcher.api.get_my_queue",
+					callback: function (q) {
+						mm_employee_watcher._queue = q.message || [];
+						finish();
+					},
 				});
-			} else if (!status.current_session && status.status === "IDLE" && !silent) {
-				mm_employee_watcher.show_work_now_dialog();
+			} else {
+				mm_employee_watcher._queue = [];
+				finish();
 			}
 		},
 	});
@@ -201,6 +217,15 @@ mm_employee_watcher.ensure_widget = function () {
 		#mm-fab-panel .mm-p-since { color: var(--text-muted, #6c7680); font-size: 11px; margin-bottom: 10px; }
 		#mm-fab-panel .mm-p-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 		#mm-fab-panel .mm-p-actions button { white-space: nowrap; }
+		#mm-fab-panel .mm-q { margin: 2px 0 10px; }
+		#mm-fab-panel .mm-q .mm-qi {
+			display: flex; align-items: center; justify-content: space-between; gap: 8px;
+			padding: 6px 0; border-bottom: 1px solid var(--border-color, #e2e6e9);
+		}
+		#mm-fab-panel .mm-q .mm-qi:last-child { border-bottom: none; }
+		#mm-fab-panel .mm-q .mm-qt { flex: 1; min-width: 0; }
+		#mm-fab-panel .mm-q .mm-qt b { font-weight: 600; }
+		#mm-fab-panel .mm-q .mm-qt span { display: block; font-size: 11px; color: var(--text-muted, #6c7680); }
 	`);
 	$("body").append('<button id="mm-fab" style="display:none"></button><div id="mm-fab-panel"></div>');
 	try {
@@ -274,9 +299,10 @@ mm_employee_watcher.render_widget = function (status) {
 	}
 
 	var session = status.session || null;
-	var working = !!session;
+	var onBreak = status.status === "BREAK";
+	var working = !!session && !onBreak;
 	var mini = !!mm_employee_watcher._minimized;
-	fab.toggleClass("mm-idle", !working);
+	fab.toggleClass("mm-idle", !working && !onBreak);
 	fab.toggleClass("mm-min", mini);
 
 	var head =
@@ -311,17 +337,57 @@ mm_employee_watcher.render_widget = function (status) {
 			'<button class="btn btn-sm btn-default" data-mm-block>' + __("Blocked") + "</button>" +
 			"</div>"
 		);
+	} else if (onBreak) {
+		var bover = mm_employee_watcher.is_overdue(status.break_until);
+		fab.toggleClass("mm-over", bover);
+		fab.removeClass("mm-idle");
+		fab.html(
+			(mini ? "" : "☕") +
+			'<span class="mm-badge' + (bover && !mini ? " mm-over" : "") + '" data-mm-break-badge>' +
+			(status.break_until ? mm_employee_watcher.countdown(status.break_until) : "--:--") +
+			"</span>"
+		).show();
+		panel.html(
+			head +
+			'<div class="mm-p-act">' + __("On a break") + "</div>" +
+			'<div class="mm-p-clock' + (bover ? " mm-over" : "") + '" data-mm-break-clock>' +
+			(status.break_until ? mm_employee_watcher.countdown(status.break_until) : "--:--") + "</div>" +
+			'<div class="mm-p-since">' +
+			(bover ? __("Break time is over — please resume") : __("Time left on your break")) + "</div>" +
+			'<div class="mm-p-actions">' +
+			'<button class="btn btn-sm btn-primary" data-mm-start>' + __("Resume Work") + "</button>" +
+			"</div>"
+		);
 	} else {
 		fab.removeClass("mm-over");
 		fab.html(mini ? '<span data-mm-badge>&bull;</span>' : "🤖").show();
-		panel.html(
-			head +
-			'<div class="mm-p-act">' + __("No work in progress") + "</div>" +
-			'<div class="mm-p-desc">' + __("Start a new work to begin the timer.") + "</div>" +
-			'<div class="mm-p-actions">' +
-			'<button class="btn btn-sm btn-primary" data-mm-start>' + __("Start Work") + "</button>" +
-			"</div>"
-		);
+		var queue = mm_employee_watcher._queue || [];
+		var qhtml = "";
+		if (queue.length) {
+			qhtml += '<div class="mm-p-act">' + __("Your pending work ({0})", [queue.length]) + "</div>";
+			qhtml += '<div class="mm-q">';
+			queue.slice(0, 6).forEach(function (item) {
+				var sub = [];
+				if (item.instructions) sub.push(mm_employee_watcher.escape(item.instructions));
+				if (item.for_date) sub.push(item.for_date);
+				qhtml +=
+					'<div class="mm-qi"><div class="mm-qt"><b>' +
+					mm_employee_watcher.escape(item.work_activity) + "</b>" +
+					(sub.length ? "<span>" + sub.join(" · ") + "</span>" : "") +
+					'</div><button class="btn btn-xs btn-primary" data-mm-qstart="' +
+					mm_employee_watcher.escape(item.name) + '">' + __("Start") + "</button></div>";
+			});
+			qhtml += "</div>";
+			qhtml += '<div class="mm-p-actions"><button class="btn btn-sm btn-default" data-mm-start>' +
+				__("Start other work") + "</button></div>";
+		} else {
+			qhtml =
+				'<div class="mm-p-act">' + __("No work in progress") + "</div>" +
+				'<div class="mm-p-desc">' + __("Start a new work to begin the timer.") + "</div>" +
+				'<div class="mm-p-actions"><button class="btn btn-sm btn-primary" data-mm-start>' +
+				__("Start Work") + "</button></div>";
+		}
+		panel.html(head + qhtml);
 	}
 
 	panel.find("[data-mm-min]").on("click", function () {
@@ -330,6 +396,18 @@ mm_employee_watcher.render_widget = function (status) {
 	panel.find("[data-mm-end]").on("click", mm_employee_watcher.show_end_work_dialog);
 	panel.find("[data-mm-start]").on("click", function () {
 		mm_employee_watcher.show_work_now_dialog();
+	});
+	panel.find("[data-mm-qstart]").on("click", function () {
+		var qi = $(this).attr("data-mm-qstart");
+		frappe.call({
+			method: "mm_employee_watcher.api.start_queue_item",
+			args: { queue_item: qi },
+			callback: function () {
+				frappe.show_alert({ message: __("Work started"), indicator: "green" });
+				$("#mm-fab-panel").removeClass("mm-open");
+				mm_employee_watcher.check_status(true);
+			},
+		});
 	});
 	panel.find("[data-mm-block]").on("click", mm_employee_watcher.show_blocked_dialog);
 	panel.find("[data-mm-ext]").on("click", function () {
@@ -348,11 +426,22 @@ mm_employee_watcher.render_widget = function (status) {
 
 mm_employee_watcher.tick = function () {
 	var status = mm_employee_watcher._status;
-	if (!status || !status.session) return;
+	if (!status) return;
+	var mini = !!mm_employee_watcher._minimized;
+
+	if (status.status === "BREAK" && status.break_until) {
+		var bt = mm_employee_watcher.countdown(status.break_until);
+		var bover = mm_employee_watcher.is_overdue(status.break_until);
+		$("#mm-fab [data-mm-break-badge]").text(bt).toggleClass("mm-over", bover && !mini);
+		$("#mm-fab").toggleClass("mm-over", bover);
+		$("#mm-fab-panel [data-mm-break-clock]").text(bt).toggleClass("mm-over", bover);
+		return;
+	}
+
+	if (!status.session) return;
 	var end = status.session.target_end_time;
 	var text = mm_employee_watcher.countdown(end);
 	var over = mm_employee_watcher.is_overdue(end);
-	var mini = !!mm_employee_watcher._minimized;
 	$("#mm-fab [data-mm-badge]").text(text).toggleClass("mm-over", over && !mini);
 	$("#mm-fab").toggleClass("mm-over", over && mini);
 	$("#mm-fab-panel [data-mm-panel-clock]").text(text).toggleClass("mm-over", over);
@@ -389,58 +478,85 @@ mm_employee_watcher.release_dialog = function (d) {
 };
 
 // Forced "Work Now" popup — what will you do next?
-mm_employee_watcher.show_work_now_dialog = function (suggestion) {
+mm_employee_watcher.show_work_now_dialog = function () {
 	if (mm_employee_watcher._dialog_open) return;
 	mm_employee_watcher._dialog_open = true;
 
-	function render(suggestion) {
-		var suggestedActivity = suggestion
-			? (suggestion.work_activity || suggestion.default_work_activity || null)
-			: null;
+	function render(queue) {
+		queue = queue || [];
+		var byName = {};
+		var queueOptions = [__("— free choice —")];
+		queue.forEach(function (it) {
+			var label = it.work_activity + (it.for_date ? " (" + it.for_date + ")" : "");
+			byName[label] = it;
+			queueOptions.push(label);
+		});
+
+		var fields = [];
+		if (queue.length) {
+			fields.push({
+				fieldname: "queue_pick",
+				label: __("Pick from your queue"),
+				fieldtype: "Select",
+				options: queueOptions.join("\n"),
+				default: queueOptions[1],
+			});
+		}
+		fields.push(
+			{
+				fieldname: "work_activity",
+				label: __("Work"),
+				fieldtype: "Link",
+				options: "Work Activity Master",
+				reqd: 1,
+			},
+			{
+				fieldname: "description",
+				label: __("What exactly will you do?"),
+				fieldtype: "Small Text",
+				reqd: 1,
+			},
+			{ fieldtype: "Column Break" },
+			{
+				fieldname: "start_time",
+				label: __("Start Time"),
+				fieldtype: "Datetime",
+				default: frappe.datetime.now_datetime(),
+				read_only: 1,
+			},
+			{
+				fieldname: "duration_minutes",
+				label: __("Duration (minutes)"),
+				fieldtype: "Int",
+				default: 60,
+				description: __("Used to compute the End Time target."),
+			},
+			{
+				fieldname: "target_qty",
+				label: __("Target Qty"),
+				fieldtype: "Float",
+			}
+		);
+
 		var d = new frappe.ui.Dialog({
 			title: __("What work are you starting now?"),
-			fields: [
-				{
-					fieldname: "work_activity",
-					label: __("Work"),
-					fieldtype: "Link",
-					options: "Work Activity Master",
-					reqd: 1,
-					default: suggestedActivity,
-				},
-				{
-					fieldname: "description",
-					label: __("What exactly will you do?"),
-					fieldtype: "Small Text",
-					reqd: 1,
-				},
-				{ fieldtype: "Column Break" },
-				{
-					fieldname: "start_time",
-					label: __("Start Time"),
-					fieldtype: "Datetime",
-					default: frappe.datetime.now_datetime(),
-					read_only: 1,
-				},
-				{
-					fieldname: "duration_minutes",
-					label: __("Duration (minutes)"),
-					fieldtype: "Int",
-					default: 60,
-					description: __("Used to compute the End Time target."),
-				},
-				{
-					fieldname: "target_qty",
-					label: __("Target Qty"),
-					fieldtype: "Float",
-					default: suggestion ? suggestion.target_qty : null,
-				},
-			],
+			fields: fields,
 			primary_action_label: __("Start Work"),
 			primary_action: function (values) {
-				// Small Text controls may not copy the last typed characters into
-				// `values` until the textarea loses focus. Read the live input so a
-				// user who types and immediately clicks Start Work is not rejected.
+				var picked = values.queue_pick && byName[values.queue_pick];
+				if (picked) {
+					frappe.call({
+						method: "mm_employee_watcher.api.start_queue_item",
+						args: { queue_item: picked.name, target_minutes: values.duration_minutes },
+						callback: function () {
+							frappe.show_alert({ message: __("Work started"), indicator: "green" });
+							mm_employee_watcher.release_dialog(d);
+							d.hide();
+							mm_employee_watcher.check_status(true);
+						},
+					});
+					return;
+				}
 				var descriptionControl = d.get_field("description");
 				var description = String(
 					descriptionControl && descriptionControl.$input
@@ -458,8 +574,6 @@ mm_employee_watcher.show_work_now_dialog = function (suggestion) {
 						target_qty: values.target_qty,
 						target_minutes: values.duration_minutes,
 						description: description,
-						reference_doctype: suggestion ? suggestion.reference_doctype : null,
-						reference_name: suggestion ? suggestion.reference_name : null,
 					},
 					callback: function () {
 						frappe.show_alert({ message: __("Work started"), indicator: "green" });
@@ -471,17 +585,45 @@ mm_employee_watcher.show_work_now_dialog = function (suggestion) {
 			},
 			secondary_action_label: __("I'm on a break"),
 			secondary_action: function () {
-				frappe.call({
-					method: "mm_employee_watcher.api.mark_break",
-					callback: function () {
-						frappe.show_alert({ message: __("Marked as break"), indicator: "blue" });
-						mm_employee_watcher.release_dialog(d);
-						d.hide();
-						mm_employee_watcher.check_status(true);
+				frappe.prompt(
+					{
+						label: __("Break for how many minutes?"),
+						fieldname: "minutes",
+						fieldtype: "Select",
+						options: "10\n15\n20\n30\n45\n60",
+						default: "15",
 					},
-				});
+					function (v) {
+						frappe.call({
+							method: "mm_employee_watcher.api.mark_break",
+							args: { minutes: v.minutes },
+							callback: function () {
+								frappe.show_alert(
+									{ message: __("Break started — {0} min", [v.minutes]), indicator: "blue" },
+									6
+								);
+								mm_employee_watcher.release_dialog(d);
+								d.hide();
+								mm_employee_watcher.check_status(true);
+							},
+						});
+					},
+					__("Take a break"),
+					__("Start break")
+				);
 			},
 		});
+
+		if (queue.length) {
+			d.fields_dict.queue_pick.$input.on("change", function () {
+				var it = byName[$(this).val()];
+				if (!it) return;
+				d.set_value("work_activity", it.work_activity);
+				d.set_value("description", it.instructions || it.work_activity);
+				if (it.target_qty) d.set_value("target_qty", it.target_qty);
+			});
+		}
+
 		d.onhide = function () {
 			mm_employee_watcher._dialog_open = false;
 		};
@@ -489,16 +631,12 @@ mm_employee_watcher.show_work_now_dialog = function (suggestion) {
 		mm_employee_watcher.lock_dialog(d);
 	}
 
-	if (suggestion !== undefined) {
-		render(suggestion);
-	} else {
-		frappe.call({
-			method: "mm_employee_watcher.api.get_next_work",
-			callback: function (r) {
-				render(r.message);
-			},
-		});
-	}
+	frappe.call({
+		method: "mm_employee_watcher.api.get_my_queue",
+		callback: function (r) {
+			render(r.message);
+		},
+	});
 };
 
 // End Work — what did you actually do?

@@ -11,6 +11,7 @@
   "column_break_1",
   "current_session",
   "idle_since",
+  "break_until",
   "last_heartbeat"
  ],
  "fields": [
@@ -60,6 +61,12 @@
    "fieldname": "idle_since",
    "fieldtype": "Datetime",
    "label": "Idle Since"
+  },
+  {
+   "description": "Planned end of the current break; the sweep flips the employee to IDLE once this passes.",
+   "fieldname": "break_until",
+   "fieldtype": "Datetime",
+   "label": "Break Until"
   },
   {
    "fieldname": "last_heartbeat",

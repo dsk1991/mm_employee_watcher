@@ -183,6 +183,38 @@ class MetadataTest(unittest.TestCase):
 		)
 		self.assertIn("mm_employee_watcher:supervisor_alert", script)
 
+	def test_queue_schedule_and_break_overrun_wired(self):
+		hooks = (ROOT / "mm_employee_watcher" / "hooks.py").read_text(encoding="utf-8")
+		self.assertIn("build_scheduled_queues", hooks)
+		self.assertIn("check_break_overrun", hooks)
+		tasks = (ROOT / "mm_employee_watcher" / "tasks.py").read_text(encoding="utf-8")
+		self.assertIn("def build_scheduled_queues", tasks)
+		self.assertIn("def check_break_overrun", tasks)
+		for folder in ("work_queue_schedule", "work_queue_schedule_assignee"):
+			self.assertTrue((DOCTYPE_ROOT / folder).exists(), folder)
+		sch = load_doctype("work_queue_schedule", "work_queue_schedule.json")
+		s_fields = {f["fieldname"] for f in sch["fields"]}
+		self.assertTrue(
+			{"recurrence", "weekday", "day_of_month", "specific_dates", "assignees", "last_run_date"}
+			<= s_fields
+		)
+		rec = next(f for f in sch["fields"] if f["fieldname"] == "recurrence")
+		self.assertEqual(
+			set(rec["options"].splitlines()), {"Daily", "Weekly", "Monthly", "Specific Dates"}
+		)
+		queue = load_doctype("employee_work_queue", "employee_work_queue.json")
+		q_fields = {f["fieldname"] for f in queue["fields"]}
+		self.assertTrue({"schedule", "for_date", "instructions"} <= q_fields)
+		status = load_doctype("employee_current_status", "employee_current_status.json")
+		self.assertIn("break_until", {f["fieldname"] for f in status["fields"]})
+		api = (ROOT / "mm_employee_watcher" / "api.py").read_text(encoding="utf-8")
+		self.assertIn("def get_my_queue", api)
+		self.assertIn("def start_queue_item", api)
+		wlog = load_doctype("employee_work_log", "employee_work_log.json")
+		opts = next(f for f in wlog["fields"] if f["fieldname"] == "event_type")["options"].splitlines()
+		self.assertIn("Break Start", opts)
+		self.assertIn("Break End", opts)
+
 	def test_migration_patch_registered(self):
 		patches = (ROOT / "mm_employee_watcher" / "patches.txt").read_text(encoding="utf-8")
 		self.assertIn("mm_employee_watcher.patches.v0_3_0_remove_sections", patches)

@@ -56,6 +56,8 @@ def set_status(employee: str, status: str, current_session: str | None = None):
 	changed = doc.status != status or doc.current_session != current_session
 	if doc.status == STATUS_BREAK and status != STATUS_BREAK:
 		log_event(employee, current_session or doc.current_session, "Break End")
+	if status != STATUS_BREAK:
+		doc.break_until = None
 	doc.status = status
 	doc.current_session = current_session
 	doc.status_since = now_datetime() if changed or not doc.status_since else doc.status_since

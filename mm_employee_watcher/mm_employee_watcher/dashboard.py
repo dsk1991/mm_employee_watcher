@@ -107,6 +107,21 @@ def get_dashboard_data():
 		card["today_counts"] = counts_by_employee.get(row.employee, {})
 		cards.append(card)
 
+	# Pending queue count per employee.
+	queue_by_employee = {}
+	for q in frappe.db.sql(
+		"""
+		select employee, count(name) as n
+		from `tabEmployee Work Queue`
+		where status in ('Pending', 'Assigned')
+		group by employee
+		""",
+		as_dict=True,
+	):
+		queue_by_employee[q.employee] = q.n
+	for c in cards:
+		c["queue_pending"] = queue_by_employee.get(c["employee"], 0)
+
 	# Open supervisor alerts, per employee.
 	alerts_by_employee = {}
 	for a in frappe.get_all(
