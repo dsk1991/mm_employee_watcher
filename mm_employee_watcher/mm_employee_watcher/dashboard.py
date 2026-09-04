@@ -33,15 +33,17 @@ def _check_manage_permission():
 
 @frappe.whitelist()
 def get_queue_form_data():
-	"""Employee + activity lists for the dashboard's 'Add to queue' form."""
+	"""Employee + activity lists for the dashboard's 'Add to queue' form.
+	Only tracked employees — queueing work for an untracked user is a no-op."""
 	_check_manage_permission()
+	employees = frappe.get_all(
+		"Employee",
+		filters={"status": "Active"},
+		fields=["name", "employee_name", "department"],
+		order_by="employee_name asc",
+	)
 	return {
-		"employees": frappe.get_all(
-			"Employee",
-			filters={"status": "Active"},
-			fields=["name", "employee_name", "department"],
-			order_by="employee_name asc",
-		),
+		"employees": [e for e in employees if is_tracking_enabled(e.name)],
 		"activities": frappe.get_all(
 			"Work Activity Master", fields=["name"], order_by="name asc"
 		),
@@ -62,6 +64,8 @@ def add_queue_item(
 	_check_manage_permission()
 	if not frappe.db.exists("Employee", {"name": employee, "status": "Active"}):
 		frappe.throw(_("{0} is not an active employee").format(employee))
+	if not is_tracking_enabled(employee):
+		frappe.throw(_("{0} is not tracked — tick 'Enable Work Tracking' on their User first").format(employee))
 	if not frappe.db.exists("Work Activity Master", work_activity):
 		frappe.throw(_("Unknown work activity {0}").format(work_activity))
 
