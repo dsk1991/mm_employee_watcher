@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.6.0 - 2026-09-04
+
+- **Employee Work Report** (Script Report) — worked / idle / break / blocked
+  hours per employee over a date range, session count, and an average
+  efficiency (Work Activity standard duration vs actual). Filters: date
+  range, department, employee.
+- **Blocked work is recoverable from the widget.** A blocked session now
+  gets its own panel — reason + **Unblock & Resume** (calls `resume_work`)
+  + End Work — instead of the normal timer view.
+- **Data retention.** `MM Watcher Settings` gains `log_retention_days`
+  (default 90) and `alert_retention_days` (default 180); a nightly
+  `purge_old_records` job trims `Employee Work Log`, cleared
+  `Employee Watcher Alert`, and finished `Employee Work Queue` rows. 0 =
+  keep forever.
+
 ## 0.5.0 - 2026-09-04
 
 - **Employees pick their own work.** `get_my_queue` returns everything

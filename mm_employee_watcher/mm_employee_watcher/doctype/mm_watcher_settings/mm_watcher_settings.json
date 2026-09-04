@@ -10,7 +10,10 @@
   "overdue_alert_minutes",
   "blocked_alert_minutes",
   "section_break_recipients",
-  "alert_recipients"
+  "alert_recipients",
+  "section_break_retention",
+  "log_retention_days",
+  "alert_retention_days"
  ],
  "fields": [
   {
@@ -56,6 +59,25 @@
    "fieldtype": "Table",
    "label": "Alert Recipients",
    "options": "MM Watcher Alert Recipient"
+  },
+  {
+   "fieldname": "section_break_retention",
+   "fieldtype": "Section Break",
+   "label": "Data Retention"
+  },
+  {
+   "default": "90",
+   "description": "Delete Employee Work Log rows older than this many days (0 = keep forever).",
+   "fieldname": "log_retention_days",
+   "fieldtype": "Int",
+   "label": "Activity Log Retention (days)"
+  },
+  {
+   "default": "180",
+   "description": "Delete cleared Employee Watcher Alert rows older than this many days (0 = keep forever).",
+   "fieldname": "alert_retention_days",
+   "fieldtype": "Int",
+   "label": "Cleared Alert Retention (days)"
   }
  ],
  "index_web_pages_for_search": 1,

@@ -13,7 +13,7 @@ import calendar
 
 import frappe
 from frappe import _
-from frappe.utils import now_datetime, get_datetime, getdate, time_diff_in_seconds
+from frappe.utils import add_days, now_datetime, get_datetime, getdate, time_diff_in_seconds
 
 from mm_employee_watcher.utils import (
 	STATUS_IDLE,
@@ -370,3 +370,40 @@ def _schedule_employees(sch):
 			pluck="name",
 		)
 	return [row.employee for row in (sch.assignees or []) if row.employee]
+
+
+# ---------------------------------------------------------------------------
+# Retention
+# ---------------------------------------------------------------------------
+
+def purge_old_records():
+	"""Keep the noisy tables from growing forever. Thresholds live in
+	MM Watcher Settings (0 = keep forever)."""
+	settings = get_watcher_settings()
+
+	log_days = int(settings.get("log_retention_days") or 0)
+	if log_days > 0:
+		frappe.db.delete(
+			"Employee Work Log",
+			{"event_time": ["<", add_days(now_datetime(), -log_days)]},
+		)
+
+	alert_days = int(settings.get("alert_retention_days") or 0)
+	if alert_days > 0:
+		frappe.db.delete(
+			"Employee Watcher Alert",
+			{
+				"status": "Cleared",
+				"cleared_at": ["<", add_days(now_datetime(), -alert_days)],
+			},
+		)
+
+	# Finished queue items older than 60 days are just clutter.
+	frappe.db.delete(
+		"Employee Work Queue",
+		{
+			"status": ["in", ["Completed", "Cancelled"]],
+			"modified": ["<", add_days(now_datetime(), -60)],
+		},
+	)
+	frappe.db.commit()

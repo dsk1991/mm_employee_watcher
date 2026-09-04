@@ -215,6 +215,29 @@ class MetadataTest(unittest.TestCase):
 		self.assertIn("Break Start", opts)
 		self.assertIn("Break End", opts)
 
+	def test_report_and_retention(self):
+		report_dir = (
+			ROOT / "mm_employee_watcher" / "mm_employee_watcher" / "report" / "employee_work_report"
+		)
+		self.assertTrue((report_dir / "employee_work_report.py").exists())
+		rjson = json.loads((report_dir / "employee_work_report.json").read_text(encoding="utf-8"))
+		self.assertEqual(rjson["report_type"], "Script Report")
+		self.assertEqual(rjson["module"], "MM Employee Watcher")
+		rpy = (report_dir / "employee_work_report.py").read_text(encoding="utf-8")
+		self.assertIn("def execute", rpy)
+		hooks = (ROOT / "mm_employee_watcher" / "hooks.py").read_text(encoding="utf-8")
+		self.assertIn("purge_old_records", hooks)
+		tasks = (ROOT / "mm_employee_watcher" / "tasks.py").read_text(encoding="utf-8")
+		self.assertIn("def purge_old_records", tasks)
+		settings = load_doctype("mm_watcher_settings", "mm_watcher_settings.json")
+		s_fields = {f["fieldname"] for f in settings["fields"]}
+		self.assertTrue({"log_retention_days", "alert_retention_days"} <= s_fields)
+		script = (ROOT / "mm_employee_watcher" / "public" / "js" / "mm_employee_watcher.bundle.js").read_text(
+			encoding="utf-8"
+		)
+		self.assertIn("data-mm-resume", script)
+		self.assertIn("mm_employee_watcher.api.resume_work", script)
+
 	def test_migration_patch_registered(self):
 		patches = (ROOT / "mm_employee_watcher" / "patches.txt").read_text(encoding="utf-8")
 		self.assertIn("mm_employee_watcher.patches.v0_3_0_remove_sections", patches)

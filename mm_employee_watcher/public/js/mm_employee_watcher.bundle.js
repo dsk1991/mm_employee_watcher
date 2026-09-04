@@ -309,7 +309,21 @@ mm_employee_watcher.render_widget = function (status) {
 		'<div class="mm-p-head"><span class="mm-p-title">' + __("Work Timer") + "</span>" +
 		'<button class="mm-p-min" data-mm-min title="' + __("Minimize") + '">&#8211;</button></div>';
 
-	if (working) {
+	if (working && session.status === "Blocked") {
+		fab.toggleClass("mm-over", true);
+		fab.removeClass("mm-idle");
+		fab.html((mini ? "" : "🚧") + '<span class="mm-badge mm-over" data-mm-badge>!</span>').show();
+		panel.html(
+			head +
+			'<div class="mm-p-act">' + mm_employee_watcher.escape(session.work_activity) + "</div>" +
+			'<div class="mm-p-clock mm-over">' + __("Blocked") + "</div>" +
+			'<div class="mm-p-desc">' + mm_employee_watcher.escape(session.blocked_reason || "") + "</div>" +
+			'<div class="mm-p-actions">' +
+			'<button class="btn btn-sm btn-primary" data-mm-resume>' + __("Unblock &amp; Resume") + "</button>" +
+			'<button class="btn btn-sm btn-default" data-mm-end>' + __("End Work") + "</button>" +
+			"</div>"
+		);
+	} else if (working) {
 		var over = mm_employee_watcher.is_overdue(session.target_end_time);
 		var clock = mm_employee_watcher.countdown(session.target_end_time);
 		fab.toggleClass("mm-over", over && mini);
@@ -410,6 +424,17 @@ mm_employee_watcher.render_widget = function (status) {
 		});
 	});
 	panel.find("[data-mm-block]").on("click", mm_employee_watcher.show_blocked_dialog);
+	panel.find("[data-mm-resume]").on("click", function () {
+		if (!session) return;
+		frappe.call({
+			method: "mm_employee_watcher.api.resume_work",
+			args: { work_session: session.name },
+			callback: function () {
+				frappe.show_alert({ message: __("Back to work"), indicator: "green" });
+				mm_employee_watcher.check_status(true);
+			},
+		});
+	});
 	panel.find("[data-mm-ext]").on("click", function () {
 		var minutes = parseInt($(this).attr("data-mm-ext"), 10);
 		if (!session) return;

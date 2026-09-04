@@ -193,6 +193,8 @@ ALERT_DEFAULTS = {
 	"idle_alert_minutes": 15,
 	"overdue_alert_minutes": 30,
 	"blocked_alert_minutes": 20,
+	"log_retention_days": 90,
+	"alert_retention_days": 180,
 }
 
 

@@ -67,6 +67,10 @@ scheduler_events = {
 		"0 * * * *": [
 			"mm_employee_watcher.tasks.build_scheduled_queues",
 		],
+		# nightly: purge old Work Log / cleared Alert / finished Queue rows
+		"30 1 * * *": [
+			"mm_employee_watcher.tasks.purge_old_records",
+		],
 	},
 }
 
