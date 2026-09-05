@@ -316,6 +316,20 @@ class MetadataTest(unittest.TestCase):
 			self.assertIn(token, page)
 		self.assertIn('"department"', impl)
 
+	def test_passive_desk_tracking_never_throws_for_untracked_users(self):
+		"""record_desktop_activity fires from every Desk user's route changes
+		(bind_desktop_activity_tracking), tracked or not. It must resolve the
+		employee with the non-throwing get_employee_for_user(), never the
+		_get_employee_for_user() that raises 'No active Employee record
+		linked to this user' — that error was popping on every navigation
+		for users with no linked Employee (e.g. Administrator) or tracking
+		off."""
+		api = (ROOT / "mm_employee_watcher" / "api.py").read_text(encoding="utf-8")
+		fn = api.split("def record_desktop_activity")[1].split("\ndef ")[0]
+		self.assertIn("employee = get_employee_for_user()", fn)
+		self.assertNotIn("_get_employee_for_user(", fn)
+		self.assertIn("if not employee or not is_tracking_enabled(employee)", fn)
+
 	def test_migration_patch_registered(self):
 		patches = (ROOT / "mm_employee_watcher" / "patches.txt").read_text(encoding="utf-8")
 		self.assertIn("mm_employee_watcher.patches.v0_3_0_remove_sections", patches)

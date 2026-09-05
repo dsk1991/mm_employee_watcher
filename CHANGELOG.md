@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.1 - 2026-09-04
+
+- **Fix: "No active Employee record linked to this user" popping on every
+  Desk navigation.** `record_desktop_activity` (fired for *every* logged-in
+  user's route changes, tracked or not) resolved the employee with the
+  throwing `_get_employee_for_user()` instead of the non-throwing
+  `get_employee_for_user()`. Anyone with no linked Employee (e.g.
+  Administrator) or with tracking off got the error on every Sales
+  Invoice / Payment Entry / report screen they opened. It now degrades
+  silently like `record_screen_view` already did.
+
 ## 0.9.0 - 2026-09-04
 
 - **Per-session drill-down.** Every row in the "Work sessions" table (Active

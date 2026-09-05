@@ -685,8 +685,11 @@ def record_desktop_activity(
 	a flood of auto-completed sessions."""
 	if action not in ALLOWED_DESKTOP_EVENTS:
 		frappe.throw(_("Unsupported desktop activity event"))
-	employee = _get_employee_for_user()
-	if not is_tracking_enabled(employee):
+	# Fires from passive Desk navigation for every logged-in user, tracked or
+	# not — it must never throw for someone with no linked Employee or with
+	# tracking off, or every route change pops an error.
+	employee = get_employee_for_user()
+	if not employee or not is_tracking_enabled(employee):
 		return {"tracking": False}
 
 	if reference_doctype and reference_name and action in {"Document Created", "Document Submitted"}:
