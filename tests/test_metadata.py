@@ -330,6 +330,54 @@ class MetadataTest(unittest.TestCase):
 		self.assertNotIn("_get_employee_for_user(", fn)
 		self.assertIn("if not employee or not is_tracking_enabled(employee)", fn)
 
+	def test_mobile_pwa_worker_page(self):
+		www = ROOT / "mm_employee_watcher" / "www"
+		for name in ("mm_worker.html", "mm_worker.py", "manifest.json", "sw.js"):
+			self.assertTrue((www / name).exists(), name)
+
+		manifest = json.loads((www / "manifest.json").read_text(encoding="utf-8"))
+		self.assertEqual(manifest["start_url"], "/mm_worker")
+		self.assertEqual(manifest["display"], "standalone")
+		self.assertTrue(manifest["icons"])
+		for icon in manifest["icons"]:
+			self.assertIn("mm_employee_watcher/images/", icon["src"])
+
+		worker_py = (www / "mm_worker.py").read_text(encoding="utf-8")
+		self.assertIn('redirect-to=/mm_worker', worker_py)
+		self.assertIn("Guest", worker_py)
+
+		page = (www / "mm_worker.html").read_text(encoding="utf-8")
+		self.assertIn('rel="manifest" href="/manifest.json"', page)
+		self.assertIn('navigator.serviceWorker.register("/sw.js", { scope: "/mm_worker" })', page)
+		for method in (
+			"get_my_status",
+			"get_my_queue",
+			"list_work_activities",
+			"start_work",
+			"end_work",
+			"mark_break",
+			"mark_blocked",
+			"resume_work",
+			"extend_work",
+			"start_queue_item",
+			"heartbeat",
+		):
+			self.assertIn("mm_employee_watcher.api." + method, page)
+
+		sw = (www / "sw.js").read_text(encoding="utf-8")
+		self.assertIn('"/mm_worker"', sw)
+
+		api = (ROOT / "mm_employee_watcher" / "api.py").read_text(encoding="utf-8")
+		self.assertIn("def list_work_activities", api)
+		shim = (ROOT / "mm_employee_watcher" / "mm_employee_watcher" / "api.py").read_text(encoding="utf-8")
+		self.assertIn("list_work_activities", shim)
+
+		icons_dir = ROOT / "mm_employee_watcher" / "public" / "images"
+		self.assertTrue((icons_dir / "mm-icon-192.png").exists())
+		self.assertTrue((icons_dir / "mm-icon-512.png").exists())
+		with open(icons_dir / "mm-icon-192.png", "rb") as f:
+			self.assertEqual(f.read(8), b"\x89PNG\r\n\x1a\n")
+
 	def test_migration_patch_registered(self):
 		patches = (ROOT / "mm_employee_watcher" / "patches.txt").read_text(encoding="utf-8")
 		self.assertIn("mm_employee_watcher.patches.v0_3_0_remove_sections", patches)

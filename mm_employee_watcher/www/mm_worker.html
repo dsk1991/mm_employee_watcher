@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>MM Work Tracker</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0f1115">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MM Tracker">
+<link rel="apple-touch-icon" href="/assets/mm_employee_watcher/images/mm-icon-192.png">
+<link rel="icon" href="/assets/mm_employee_watcher/images/mm-icon-192.png">
+<style>
+	:root {
+		--bg: #0f1115;
+		--card-bg: #1a1d24;
+		--card-bg-2: #21252e;
+		--text: #f2f3f5;
+		--muted: #9aa0ab;
+		--working: #22c55e;
+		--idle: #6b7280;
+		--break: #3b82f6;
+		--blocked: #ef4444;
+		--border: rgba(255,255,255,0.1);
+	}
+	* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+	html, body {
+		margin: 0; background: var(--bg); color: var(--text);
+		font-family: "Segoe UI", Roboto, -apple-system, Arial, sans-serif;
+		min-height: 100vh; overscroll-behavior-y: contain;
+	}
+	body {
+		padding-top: env(safe-area-inset-top);
+		padding-bottom: env(safe-area-inset-bottom);
+	}
+	header {
+		display: flex; align-items: center; justify-content: space-between;
+		padding: 14px 16px; border-bottom: 1px solid var(--border);
+		position: sticky; top: 0; background: var(--bg); z-index: 5;
+	}
+	header .who { font-weight: 700; font-size: 1.05rem; }
+	header .sub { color: var(--muted); font-size: 0.78rem; }
+	header .clock { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.85rem; }
+	main { padding: 16px; max-width: 480px; margin: 0 auto; padding-bottom: 48px; }
+	.card {
+		background: var(--card-bg); border-radius: 16px; padding: 20px;
+		margin-bottom: 16px; border-left: 6px solid var(--idle);
+		box-shadow: 0 2px 14px rgba(0,0,0,0.3);
+	}
+	.card.st-WORKING { border-left-color: var(--working); }
+	.card.st-BREAK { border-left-color: var(--break); }
+	.card.st-BLOCKED { border-left-color: var(--blocked); }
+	.badge {
+		display: inline-block; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.5px;
+		text-transform: uppercase; padding: 3px 10px; border-radius: 6px; margin-bottom: 10px;
+	}
+	.badge.WORKING { background: rgba(34,197,94,0.18); color: var(--working); }
+	.badge.IDLE { background: rgba(107,114,128,0.25); color: #d1d5db; }
+	.badge.BREAK { background: rgba(59,130,246,0.18); color: var(--break); }
+	.badge.BLOCKED { background: rgba(239,68,68,0.18); color: var(--blocked); }
+	.act { font-size: 1.3rem; font-weight: 700; margin-bottom: 4px; }
+	.desc { color: var(--muted); font-size: 0.92rem; margin-bottom: 14px; white-space: pre-wrap; }
+	.clockbig {
+		font-size: 2.6rem; font-weight: 700; font-variant-numeric: tabular-nums;
+		margin: 8px 0; text-align: center;
+	}
+	.clockbig.over { color: var(--blocked); }
+	.hint { color: var(--muted); font-size: 0.85rem; text-align: center; margin-bottom: 14px; }
+	label { display: block; font-size: 0.82rem; color: var(--muted); margin: 14px 0 6px; }
+	select, input, textarea {
+		width: 100%; background: var(--card-bg-2); color: var(--text);
+		border: 1px solid var(--border); border-radius: 10px;
+		padding: 12px 13px; font-size: 1rem; color-scheme: dark;
+	}
+	textarea { resize: vertical; min-height: 64px; }
+	.btn {
+		display: block; width: 100%; border: none; border-radius: 12px;
+		padding: 15px; font-size: 1.05rem; font-weight: 700; cursor: pointer;
+		margin-top: 14px; -webkit-appearance: none;
+	}
+	.btn.primary { background: var(--working); color: #06240f; }
+	.btn.secondary { background: var(--card-bg-2); color: var(--text); border: 1px solid var(--border); }
+	.btn.danger { background: rgba(239,68,68,0.18); color: #fca5a5; border: 1px solid rgba(239,68,68,0.4); }
+	.btn.small { padding: 10px; font-size: 0.9rem; margin-top: 8px; }
+	.row2 { display: flex; gap: 10px; }
+	.row2 > .btn { flex: 1; }
+	.chiprow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+	.chip {
+		background: var(--card-bg-2); border: 1px solid var(--border); color: var(--text);
+		border-radius: 999px; padding: 9px 16px; font-size: 0.9rem; cursor: pointer;
+	}
+	.chip.on { background: var(--working); color: #06240f; border-color: transparent; }
+	.qlist { margin-top: 4px; }
+	.qitem {
+		display: flex; align-items: center; justify-content: space-between; gap: 10px;
+		background: var(--card-bg-2); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px;
+	}
+	.qitem .qt { min-width: 0; }
+	.qitem .qt b { display: block; font-size: 0.98rem; }
+	.qitem .qt span { display: block; color: var(--muted); font-size: 0.78rem; margin-top: 2px; }
+	.qitem button {
+		border: none; background: var(--working); color: #06240f; font-weight: 700;
+		border-radius: 8px; padding: 9px 14px; font-size: 0.85rem; cursor: pointer; white-space: nowrap;
+	}
+	.sec-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin: 22px 0 8px; }
+	.msg { text-align: center; padding: 60px 20px; color: var(--muted); }
+	.msg .big { font-size: 2.4rem; margin-bottom: 10px; }
+	.toast {
+		position: fixed; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
+		background: var(--card-bg-2); border: 1px solid var(--border); color: var(--text);
+		padding: 12px 16px; border-radius: 12px; text-align: center; font-size: 0.92rem;
+		box-shadow: 0 6px 20px rgba(0,0,0,0.4); z-index: 20; display: none;
+	}
+	.toast.show { display: block; }
+	.err { color: #fca5a5; font-size: 0.85rem; margin-top: 8px; min-height: 1em; }
+	.installbar {
+		display: none; align-items: center; justify-content: space-between; gap: 10px;
+		background: var(--card-bg-2); border: 1px solid var(--border); border-radius: 12px;
+		padding: 10px 14px; margin-bottom: 16px; font-size: 0.85rem;
+	}
+	.installbar.show { display: flex; }
+	.installbar button {
+		border: none; background: var(--working); color: #06240f; font-weight: 700;
+		border-radius: 8px; padding: 8px 14px; font-size: 0.85rem; cursor: pointer; white-space: nowrap;
+	}
+</style>
+</head>
+<body>
+
+<header>
+	<div>
+		<div class="who" id="whoName">MM Work Tracker</div>
+		<div class="sub" id="whoStatus">Loading…</div>
+	</div>
+	<div class="clock" id="clock">--:--:--</div>
+</header>
+
+<main>
+	<div class="installbar" id="installbar">
+		<span>Install this as an app on your phone</span>
+		<button id="installbtn">Install</button>
+	</div>
+	<div id="app"><div class="msg">Loading…</div></div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+window.csrf_token = "{{ csrf_token or '' }}";
+</script>
+<script>
+(function () {
+	"use strict";
+
+	var STATUS_LABEL = { WORKING: "Working", IDLE: "Idle", BREAK: "On break", BLOCKED: "Blocked", OFFLINE: "Offline", "OFF DUTY": "Off duty" };
+	var status = null;
+	var queue = [];
+	var activities = null;
+	var busy = false;
+
+	function escapeHtml(s) {
+		if (!s) return "";
+		return String(s).replace(/[&<>"']/g, function (m) {
+			return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m];
+		});
+	}
+
+	function toast(msg) {
+		var t = document.getElementById("toast");
+		t.textContent = msg;
+		t.classList.add("show");
+		setTimeout(function () { t.classList.remove("show"); }, 3200);
+	}
+
+	// Never rejects — a flaky mobile connection or a non-JSON error page
+	// (e.g. a session-expired redirect) always resolves to {ok:false, body}
+	// instead, so every caller's .then() still runs and the UI never gets
+	// stuck mid-action waiting on a promise that will never settle.
+	function api(method, params) {
+		return fetch("/api/method/" + method, {
+			method: "POST",
+			credentials: "same-origin",
+			headers: {
+				"X-Frappe-CSRF-Token": window.csrf_token || "",
+				"Accept": "application/json",
+				"Content-Type": "application/json"
+			},
+			body: JSON.stringify(params || {})
+		})
+			.then(function (r) {
+				return r.text().then(function (text) {
+					var body = {};
+					if (text) {
+						try { body = JSON.parse(text); } catch (e) { body = { message: "Unexpected response from server." }; }
+					}
+					return { ok: r.ok, body: body };
+				});
+			})
+			.catch(function () {
+				return { ok: false, body: { message: "Network error — check your connection." } };
+			});
+	}
+
+	function withBusy(fn) {
+		if (busy) return;
+		busy = true;
+		fn(function () { busy = false; });
+	}
+
+	function fmtClock(seconds, overdue) {
+		seconds = Math.max(0, Math.round(seconds));
+		var h = Math.floor(seconds / 3600);
+		var m = String(Math.floor((seconds % 3600) / 60)).padStart(2, "0");
+		var s = String(seconds % 60).padStart(2, "0");
+		return (overdue ? "-" : "") + (h > 0 ? h + ":" : "") + m + ":" + s;
+	}
+
+	function countdown(target) {
+		if (!target) return { text: "--:--", over: false };
+		var t = Date.parse(String(target).replace(" ", "T"));
+		if (isNaN(t)) return { text: "--:--", over: false };
+		var diff = (t - Date.now()) / 1000;
+		return { text: fmtClock(Math.abs(diff), diff < 0), over: diff < 0 };
+	}
+
+	// ---------------------------------------------------------------------
+	// Data loading
+	// ---------------------------------------------------------------------
+
+	function loadStatus(after) {
+		api("mm_employee_watcher.api.get_my_status", {}).then(function (r) {
+			if (!r.ok) {
+				document.getElementById("app").innerHTML =
+					'<div class="msg"><div class="big">⚠️</div>Could not reach the server.<br>Pull to refresh, or check your connection.</div>';
+				if (after) after();
+				return;
+			}
+			status = r.body.message || null;
+			var name = (status && status.employee) ? (status.employee_name || status.employee) : "MM Work Tracker";
+			document.getElementById("whoName").textContent = name;
+			document.getElementById("whoStatus").textContent = status && status.status
+				? (STATUS_LABEL[status.status] || status.status)
+				: (status && status.tracking === false ? "Tracking not enabled" : "");
+			if (status && status.status === "IDLE" && !status.current_session) {
+				loadQueue(render);
+			} else {
+				render();
+			}
+			if (after) after();
+		});
+	}
+
+	function loadQueue(after) {
+		api("mm_employee_watcher.api.get_my_queue", {}).then(function (r) {
+			queue = (r.ok && r.body && r.body.message) || [];
+			if (after) after();
+		});
+	}
+
+	function loadActivities(cb) {
+		if (activities) return cb(activities);
+		api("mm_employee_watcher.api.list_work_activities", {}).then(function (r) {
+			activities = ((r.ok && r.body && r.body.message) || []).map(function (a) { return a.name; });
+			cb(activities);
+		});
+	}
+
+	// ---------------------------------------------------------------------
+	// Rendering
+	// ---------------------------------------------------------------------
+
+	function render() {
+		var app = document.getElementById("app");
+		if (!status || !status.employee) {
+			app.innerHTML =
+				'<div class="msg"><div class="big">🚫</div>No Employee record is linked to your login.<br>Ask your admin to link one.</div>';
+			return;
+		}
+		if (status.tracking === false) {
+			app.innerHTML =
+				'<div class="msg"><div class="big">💤</div>Work tracking is not enabled for your account.<br>Ask your admin to tick "Enable Work Tracking" on your User.</div>';
+			return;
+		}
+		if (status.status === "BLOCKED" && status.session) {
+			renderBlocked(app, status.session);
+		} else if (status.status === "BREAK") {
+			renderBreak(app);
+		} else if (status.current_session && status.session) {
+			renderWorking(app, status.session);
+		} else {
+			renderIdle(app);
+		}
+	}
+
+	function renderWorking(app, s) {
+		var c = countdown(s.target_end_time);
+		app.innerHTML =
+			'<div class="card st-WORKING">' +
+			'<span class="badge WORKING">Working</span>' +
+			'<div class="act">' + escapeHtml(s.work_activity) + "</div>" +
+			(s.notes ? '<div class="desc">' + escapeHtml(s.notes) + "</div>" : "") +
+			'<div class="clockbig' + (c.over ? " over" : "") + '" id="wclock">' + c.text + "</div>" +
+			'<div class="hint">' + (c.over ? "Target time is over" : "time left") + "</div>" +
+			(s.target_qty ? '<div class="hint">' + (s.completed_qty || 0) + " / " + s.target_qty + " qty</div>" : "") +
+			'<button class="btn primary" id="btnEnd">End Work</button>' +
+			'<div class="row2">' +
+			'<button class="btn secondary small" id="btnExt15">+15m</button>' +
+			'<button class="btn secondary small" id="btnExt30">+30m</button>' +
+			"</div>" +
+			'<button class="btn danger small" id="btnBlock">Mark Blocked</button>' +
+			"</div>";
+		document.getElementById("btnEnd").onclick = showEndWork;
+		document.getElementById("btnExt15").onclick = function () { extendWork(s.name, 15); };
+		document.getElementById("btnExt30").onclick = function () { extendWork(s.name, 30); };
+		document.getElementById("btnBlock").onclick = showBlocked;
+	}
+
+	function renderBlocked(app, s) {
+		app.innerHTML =
+			'<div class="card st-BLOCKED">' +
+			'<span class="badge BLOCKED">Blocked</span>' +
+			'<div class="act">' + escapeHtml(s.work_activity) + "</div>" +
+			'<div class="desc">' + escapeHtml(s.blocked_reason || "") + "</div>" +
+			'<button class="btn primary" id="btnResume">Unblock &amp; Resume</button>' +
+			'<button class="btn secondary small" id="btnEnd">End Work</button>' +
+			"</div>";
+		document.getElementById("btnResume").onclick = function () { resumeWork(s.name); };
+		document.getElementById("btnEnd").onclick = showEndWork;
+	}
+
+	function renderBreak(app) {
+		var c = countdown(status.break_until);
+		app.innerHTML =
+			'<div class="card st-BREAK">' +
+			'<span class="badge BREAK">On a break</span>' +
+			'<div class="clockbig' + (c.over ? " over" : "") + '" id="bclock">' + c.text + "</div>" +
+			'<div class="hint">' + (c.over ? "Break time is over — please resume" : "time left on your break") + "</div>" +
+			'<button class="btn primary" id="btnResumeBreak">Resume Work</button>' +
+			"</div>";
+		document.getElementById("btnResumeBreak").onclick = showStartWork;
+	}
+
+	function renderIdle(app) {
+		var html = "";
+		if (queue.length) {
+			html += '<div class="sec-title">Your pending work (' + queue.length + ")</div>";
+			html += '<div class="qlist">';
+			queue.forEach(function (item) {
+				var sub = [];
+				if (item.instructions) sub.push(escapeHtml(item.instructions));
+				if (item.for_date) sub.push(item.for_date);
+				html +=
+					'<div class="qitem"><div class="qt"><b>' + escapeHtml(item.work_activity) + "</b>" +
+					(sub.length ? "<span>" + sub.join(" · ") + "</span>" : "") +
+					'</div><button data-q="' + escapeHtml(item.name) + '">Start</button></div>';
+			});
+			html += "</div>";
+		}
+		html +=
+			'<div class="card">' +
+			'<span class="badge IDLE">No work in progress</span>' +
+			'<div class="hint" style="margin-top:0;text-align:left;">Start a new work, or take a break.</div>' +
+			'<button class="btn primary" id="btnStart">Start Work</button>' +
+			'<button class="btn secondary" id="btnBreak">I\'m on a break</button>' +
+			"</div>";
+		app.innerHTML = html;
+		app.querySelectorAll("[data-q]").forEach(function (btn) {
+			btn.onclick = function () { startQueueItem(this.getAttribute("data-q")); };
+		});
+		document.getElementById("btnStart").onclick = showStartWork;
+		document.getElementById("btnBreak").onclick = showBreakPicker;
+	}
+
+	// ---------------------------------------------------------------------
+	// Forms (rendered in place of the idle card)
+	// ---------------------------------------------------------------------
+
+	function showStartWork() {
+		var app = document.getElementById("app");
+		app.innerHTML =
+			'<div class="card">' +
+			'<div class="act">What work are you starting?</div>' +
+			'<label>Work</label><select id="fAct"><option>Loading…</option></select>' +
+			'<label>What exactly will you do?</label><textarea id="fDesc" placeholder="Describe the work"></textarea>' +
+			'<label>Duration (minutes)</label><input id="fMin" type="number" value="60" min="1">' +
+			'<label>Target qty (optional)</label><input id="fQty" type="number" min="0" step="any">' +
+			'<div class="err" id="fErr"></div>' +
+			'<button class="btn primary" id="fGo">Start Work</button>' +
+			'<button class="btn secondary" id="fCancel">Cancel</button>' +
+			"</div>";
+		document.getElementById("fCancel").onclick = render;
+		loadActivities(function (list) {
+			var sel = document.getElementById("fAct");
+			sel.innerHTML = list.length
+				? list.map(function (a) { return "<option>" + escapeHtml(a) + "</option>"; }).join("")
+				: '<option value="">No activities set up</option>';
+		});
+		document.getElementById("fGo").onclick = function () {
+			var activity = document.getElementById("fAct").value;
+			var desc = document.getElementById("fDesc").value.trim();
+			var minutes = document.getElementById("fMin").value || 60;
+			var qty = document.getElementById("fQty").value || null;
+			var err = document.getElementById("fErr");
+			if (!activity) { err.textContent = "Pick a work activity."; return; }
+			if (!desc) { err.textContent = "Please describe the work."; return; }
+			err.textContent = "";
+			withBusy(function (done) {
+				api("mm_employee_watcher.api.start_work", {
+					work_activity: activity, description: desc, target_minutes: minutes, target_qty: qty
+				}).then(function (r) {
+					done();
+					if (r.ok) { toast("Work started"); loadStatus(); }
+					else { err.textContent = errMsg(r.body); }
+				});
+			});
+		};
+	}
+
+	function showEndWork() {
+		var app = document.getElementById("app");
+		app.innerHTML =
+			'<div class="card">' +
+			'<div class="act">What did you do / complete?</div>' +
+			'<textarea id="fRemarks" placeholder="What did you finish?"></textarea>' +
+			'<label>Completed qty (optional)</label><input id="fQty" type="number" min="0" step="any" value="' + ((status.session && status.session.completed_qty) || 0) + '">' +
+			'<div class="err" id="fErr"></div>' +
+			'<button class="btn primary" id="fGo">End Work</button>' +
+			'<button class="btn secondary" id="fCancel">Cancel</button>' +
+			"</div>";
+		document.getElementById("fCancel").onclick = render;
+		document.getElementById("fGo").onclick = function () {
+			var remarks = document.getElementById("fRemarks").value.trim();
+			var qty = document.getElementById("fQty").value || null;
+			var err = document.getElementById("fErr");
+			if (!remarks) { err.textContent = "Please describe what you worked on."; return; }
+			withBusy(function (done) {
+				api("mm_employee_watcher.api.end_work", {
+					work_session: status.session.name, remarks: remarks, completed_qty: qty
+				}).then(function (r) {
+					done();
+					if (r.ok) { toast("Work ended"); loadStatus(); }
+					else { err.textContent = errMsg(r.body); }
+				});
+			});
+		};
+	}
+
+	function showBlocked() {
+		var app = document.getElementById("app");
+		app.innerHTML =
+			'<div class="card">' +
+			'<div class="act">What is blocking you?</div>' +
+			'<textarea id="fReason" placeholder="e.g. waiting for material"></textarea>' +
+			'<div class="err" id="fErr"></div>' +
+			'<button class="btn danger" id="fGo">Mark Blocked</button>' +
+			'<button class="btn secondary" id="fCancel">Cancel</button>' +
+			"</div>";
+		document.getElementById("fCancel").onclick = render;
+		document.getElementById("fGo").onclick = function () {
+			var reason = document.getElementById("fReason").value.trim();
+			var err = document.getElementById("fErr");
+			if (!reason) { err.textContent = "Please describe the blocker."; return; }
+			withBusy(function (done) {
+				api("mm_employee_watcher.api.mark_blocked", { work_session: status.session.name, reason: reason }).then(function (r) {
+					done();
+					if (r.ok) { toast("Marked blocked"); loadStatus(); }
+					else { err.textContent = errMsg(r.body); }
+				});
+			});
+		};
+	}
+
+	function showBreakPicker() {
+		var app = document.getElementById("app");
+		var mins = [10, 15, 20, 30, 45, 60];
+		var picked = 15;
+		app.innerHTML =
+			'<div class="card">' +
+			'<div class="act">Break for how many minutes?</div>' +
+			'<div class="chiprow" id="chips">' +
+			mins.map(function (m) { return '<span class="chip' + (m === picked ? " on" : "") + '" data-m="' + m + '">' + m + "m</span>"; }).join("") +
+			"</div>" +
+			'<div class="err" id="fErr"></div>' +
+			'<button class="btn primary" id="fGo">Start Break</button>' +
+			'<button class="btn secondary" id="fCancel">Cancel</button>' +
+			"</div>";
+		document.getElementById("fCancel").onclick = render;
+		document.querySelectorAll("#chips .chip").forEach(function (chip) {
+			chip.onclick = function () {
+				picked = parseInt(this.getAttribute("data-m"), 10);
+				document.querySelectorAll("#chips .chip").forEach(function (c) { c.classList.toggle("on", c === chip); });
+			};
+		});
+		document.getElementById("fGo").onclick = function () {
+			withBusy(function (done) {
+				api("mm_employee_watcher.api.mark_break", { minutes: picked }).then(function (r) {
+					done();
+					if (r.ok) { toast("Break started — " + picked + " min"); loadStatus(); }
+					else { document.getElementById("fErr").textContent = errMsg(r.body); }
+				});
+			});
+		};
+	}
+
+	// ---------------------------------------------------------------------
+	// Actions
+	// ---------------------------------------------------------------------
+
+	function extendWork(session, minutes) {
+		withBusy(function (done) {
+			api("mm_employee_watcher.api.extend_work", { work_session: session, minutes: minutes }).then(function (r) {
+				done();
+				if (r.ok) { toast("Extended by " + minutes + " minutes"); loadStatus(); }
+				else { toast(errMsg(r.body)); }
+			});
+		});
+	}
+
+	function resumeWork(session) {
+		withBusy(function (done) {
+			api("mm_employee_watcher.api.resume_work", { work_session: session }).then(function (r) {
+				done();
+				if (r.ok) { toast("Back to work"); loadStatus(); }
+				else { toast(errMsg(r.body)); }
+			});
+		});
+	}
+
+	function startQueueItem(name) {
+		withBusy(function (done) {
+			api("mm_employee_watcher.api.start_queue_item", { queue_item: name }).then(function (r) {
+				done();
+				if (r.ok) { toast("Work started"); loadStatus(); }
+				else { toast(errMsg(r.body)); }
+			});
+		});
+	}
+
+	function errMsg(body) {
+		if (!body) return "Something went wrong.";
+		if (body._server_messages) {
+			try {
+				var arr = JSON.parse(body._server_messages);
+				var first = JSON.parse(arr[0]);
+				return first.message || "Something went wrong.";
+			} catch (e) { /* fall through */ }
+		}
+		return body.exception || body.message || "Something went wrong.";
+	}
+
+	// ---------------------------------------------------------------------
+	// Clock / heartbeat / lifecycle
+	// ---------------------------------------------------------------------
+
+	function tick() {
+		document.getElementById("clock").textContent = new Date().toLocaleTimeString();
+		if (!status) return;
+		if (status.status === "BREAK" && status.break_until) {
+			var bEl = document.getElementById("bclock");
+			if (bEl) {
+				var c = countdown(status.break_until);
+				bEl.textContent = c.text;
+				bEl.classList.toggle("over", c.over);
+			}
+		} else if (status.session && status.session.target_end_time) {
+			var wEl = document.getElementById("wclock");
+			if (wEl) {
+				var c2 = countdown(status.session.target_end_time);
+				wEl.textContent = c2.text;
+				wEl.classList.toggle("over", c2.over);
+			}
+		}
+	}
+	setInterval(tick, 1000);
+	tick();
+
+	function heartbeat() {
+		if (!status || !status.employee || status.tracking === false) return;
+		if (document.visibilityState !== "visible") return;
+		api("mm_employee_watcher.api.heartbeat", { active: 1 });
+	}
+	setInterval(heartbeat, 4 * 60 * 1000);
+
+	document.addEventListener("visibilitychange", function () {
+		if (document.visibilityState === "visible") { loadStatus(); heartbeat(); }
+	});
+
+	loadStatus();
+	setInterval(function () { loadStatus(); }, 25000);
+
+	// ---------------------------------------------------------------------
+	// PWA install prompt + service worker
+	// ---------------------------------------------------------------------
+
+	var deferredInstall = null;
+	window.addEventListener("beforeinstallprompt", function (e) {
+		e.preventDefault();
+		deferredInstall = e;
+		document.getElementById("installbar").classList.add("show");
+	});
+	document.getElementById("installbtn").onclick = function () {
+		if (!deferredInstall) return;
+		deferredInstall.prompt();
+		deferredInstall.userChoice.finally(function () {
+			deferredInstall = null;
+			document.getElementById("installbar").classList.remove("show");
+		});
+	};
+	window.addEventListener("appinstalled", function () {
+		document.getElementById("installbar").classList.remove("show");
+	});
+
+	if ("serviceWorker" in navigator) {
+		navigator.serviceWorker.register("/sw.js", { scope: "/mm_worker" }).catch(function () {});
+	}
+})();
+</script>
+
+</body>
+</html>

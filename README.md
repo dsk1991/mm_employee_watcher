@@ -164,6 +164,31 @@ The data itself comes from one whitelisted call,
 which the page's JS re-fetches every 30s — so the dashboard can just as
 easily be embedded in an iframe elsewhere, or polled by another tool.
 
+## Mobile tracker (PWA)
+
+Open `https://your-site/mm_worker` on a phone and "Add to Home Screen" — it
+installs as a standalone app icon (manifest + service worker), no App Store.
+It talks to the **exact same backend and whitelisted APIs** as the Desk
+widget (`get_my_status`, `start_work`, `end_work`, `mark_break`,
+`get_my_queue`, `start_queue_item`, `resume_work`, `mark_blocked`,
+`extend_work`, `heartbeat`) — it's the same tracking, not a second system, so
+work started on a phone shows up identically on `/mm_dashboard` and the
+reports as work started from Desk. It's a full-page mobile UI rather than a
+floating bubble (a phone home-screen app needs a real screen, not a chat
+bubble), with big touch buttons for Start/End Work, timed breaks, Blocked/
+Resume, and picking a task straight from the employee's queue.
+
+The service worker (`www/sw.js`, served at `/sw.js`) is registered with an
+explicit `scope: "/mm_worker"`, so even though the file itself sits at the
+site root (required for that scope to be grantable at all), the browser
+only ever routes it requests for `/mm_worker` — it cannot see or affect
+Desk, the dashboard, or anything else on the site. It only caches the page
+shell (network-first, cache as a fallback) so the app can still open on a
+dead connection; every actual status/API call is always live.
+
+Regenerate the two PNG icons any time with `python scripts/gen_icons.py
+mm_employee_watcher/public/images` (stdlib-only, no image library needed).
+
 ## Repo layout
 
 ```
@@ -178,9 +203,15 @@ mm_employee_watcher/
     state_machine.py              # pure work-session transition rules
     patches/                      # migration patches (v0_3_0_remove_sections)
     public/js/mm_employee_watcher.bundle.js       # floating work widget and dialogs
+    public/images/                # PWA icons (see scripts/gen_icons.py)
     www/mm_dashboard.html         # the wall-display dashboard page
     www/mm_dashboard.py           # page context (redirects Guests to /login)
-    mm_employee_watcher/doctype/  # the 5 DocTypes
+    www/mm_worker.html            # the mobile tracker PWA page
+    www/mm_worker.py              # page context (redirects Guests to /login)
+    www/manifest.json             # PWA manifest for mm_worker
+    www/sw.js                     # scoped-to-/mm_worker service worker
+    mm_employee_watcher/doctype/  # the 10 DocTypes
+    mm_employee_watcher/report/   # Employee Work Report
 docs/
   backend-architecture.md         # design doc (English)
   backend-architecture-hi.md      # design doc (Hindi)

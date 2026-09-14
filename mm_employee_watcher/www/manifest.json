@@ -1,0 +1,38 @@
+{
+	"name": "MM Work Tracker",
+	"short_name": "MM Tracker",
+	"description": "Start, end and track your work — MM Employee Watcher",
+	"id": "/mm_worker",
+	"start_url": "/mm_worker",
+	"scope": "/mm_worker",
+	"display": "standalone",
+	"background_color": "#0f1115",
+	"theme_color": "#0f1115",
+	"orientation": "portrait",
+	"icons": [
+		{
+			"src": "/assets/mm_employee_watcher/images/mm-icon-192.png",
+			"sizes": "192x192",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/assets/mm_employee_watcher/images/mm-icon-192.png",
+			"sizes": "192x192",
+			"type": "image/png",
+			"purpose": "maskable"
+		},
+		{
+			"src": "/assets/mm_employee_watcher/images/mm-icon-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/assets/mm_employee_watcher/images/mm-icon-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		}
+	]
+}

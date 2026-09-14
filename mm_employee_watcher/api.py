@@ -535,6 +535,16 @@ def start_queue_item(queue_item: str, target_minutes: int | None = None):
 
 
 @frappe.whitelist()
+def list_work_activities():
+	"""Work Activity Master names for the mobile worker page's Start Work
+	picker. Any logged-in user — no role assumptions, since the mobile page
+	can't use a Desk Link field's own permission-aware lookup."""
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Please log in"), frappe.PermissionError)
+	return frappe.get_all("Work Activity Master", fields=["name"], order_by="name asc")
+
+
+@frappe.whitelist()
 def record_screen_view(reference_doctype: str, reference_name: str):
 	"""Passive audit trail: the employee opened a saved document on Desk.
 
@@ -611,7 +621,12 @@ def get_my_status(employee: str | None = None):
 		"break_until": status_doc.break_until,
 	}
 
-	result = {"employee": employee, "tracking": tracking, **status}
+	result = {
+		"employee": employee,
+		"employee_name": status_doc.employee_name or employee,
+		"tracking": tracking,
+		**status,
+	}
 	if status["current_session"]:
 		session = frappe.get_doc("Employee Work Session", status["current_session"])
 		result["session"] = session.as_dict()

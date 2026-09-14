@@ -26,6 +26,7 @@ record_screen_view = _api.record_screen_view
 get_next_work = _api.get_next_work
 get_my_queue = _api.get_my_queue
 start_queue_item = _api.start_queue_item
+list_work_activities = _api.list_work_activities
 
 __all__ = [
 	"heartbeat",
@@ -42,4 +43,5 @@ __all__ = [
 	"get_next_work",
 	"get_my_queue",
 	"start_queue_item",
+	"list_work_activities",
 ]

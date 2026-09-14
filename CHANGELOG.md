@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.10.0 - 2026-09-15
+
+- **Mobile tracker PWA at `/mm_worker`.** Installable to a phone's home
+  screen (manifest + service worker) — a full-page, big-button mobile UI
+  for Start/End Work, timed breaks, Blocked/Resume, and picking a task from
+  the queue. It talks to the exact same whitelisted APIs as the Desk widget
+  (nothing new on the backend except `list_work_activities`, a plain
+  activity-name list for the mobile picker), so work tracked from a phone
+  shows up identically everywhere else — same dashboard, same report, same
+  employee record. Not a second tracking system.
+- The service worker (`www/sw.js`, served at the site root) is registered
+  with an explicit `scope: "/mm_worker"` from the page itself, so it can
+  never see or affect Desk, the dashboard, or any other route on the site —
+  it only caches the worker page's own shell as an offline fallback.
+- `get_my_status` now also returns `employee_name`.
+- New `scripts/gen_icons.py` (stdlib-only) generates the two PWA PNG icons.
+
 ## 0.9.1 - 2026-09-04
 
 - **Fix: "No active Employee record linked to this user" popping on every
