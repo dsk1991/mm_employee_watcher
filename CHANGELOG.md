@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.10.1 - 2026-09-15
+
+- **Fix: Employee Work Log entries can now be deleted.** They previously
+  refused deletion outright (`on_trash` always threw), which meant a Sales
+  Invoice, Payment Entry, or other referenced document could get permanently
+  stuck — Frappe blocks deleting a document while anything still links to
+  it, and there was no way to clear the log rows out of the way. Deletion is
+  still gated by the DocType's own permission (System Manager only, same as
+  before); entries remain immutable once created (`before_save` still blocks
+  edits) — this only removes the blanket delete block.
+
 ## 0.10.0 - 2026-09-15
 
 - **Mobile tracker PWA at `/mm_worker`.** Installable to a phone's home
