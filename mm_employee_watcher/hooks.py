@@ -47,6 +47,18 @@ doc_events = {
 	},
 }
 
+# Deletion
+# --------
+# Employee Work Log / Employee Work Session record every document a staff
+# member opens via a Dynamic Link (reference_doctype/reference_name), which
+# can point at any doctype (Pick List, Sales Invoice, ...). Frappe's delete
+# check treats Dynamic Link the same as Link, so a tracking row for a draft
+# Pick List blocked deleting that Pick List — and reopening it afterwards
+# just recreated a fresh tracking row, recreating the same block. These are
+# append-only activity logs, not relational data, so they are excluded from
+# that check the same way core log doctypes (Comment, Version, ...) are.
+ignore_links_on_delete = ["Employee Work Log", "Employee Work Session"]
+
 # Scheduled tasks
 # ---------------
 
