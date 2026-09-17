@@ -8,6 +8,7 @@ APP_ROLES = (
 )
 
 DEFAULT_ACTIVITIES = (
+	("General Work", 60),
 	("Sales Invoice Creation", 60),
 	("Payment Entry", 45),
 	("Report Viewing", 30),

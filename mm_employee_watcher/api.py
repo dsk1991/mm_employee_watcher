@@ -32,6 +32,12 @@ from mm_employee_watcher.utils import (
 MANAGER_ROLES = {"System Manager", "Employee Watcher Manager"}
 OPEN_SESSION_STATUSES = {SESSION_ACTIVE, SESSION_EXTENDED, SESSION_PAUSED, SESSION_BLOCKED}
 
+# The employee-facing "what work are you starting?" prompt (Desk widget,
+# mobile PWA, Staff App) no longer asks the employee to pick a Work Activity
+# Master — they only describe the work in free text. Every session created
+# that way is filed under this one generic activity instead.
+GENERAL_WORK_ACTIVITY = "General Work"
+
 DESKTOP_ACTIVITY_MAP = {
 	"Sales Invoice": "Sales Invoice Creation",
 	"Payment Entry": "Payment Entry",
@@ -153,7 +159,7 @@ def _create_session(
 
 @frappe.whitelist()
 def start_work(
-	work_activity: str,
+	work_activity: str | None = None,
 	employee: str | None = None,
 	target_qty: float | None = None,
 	target_minutes: int | None = None,
@@ -164,7 +170,12 @@ def start_work(
 ):
 	"""Start a new Primary Active Work session — from the Desk 'Work Now'
 	popup, WMS, or the HHT app. Refuses if the employee already has one
-	open (the DocType also validates this server-side)."""
+	open (the DocType also validates this server-side).
+
+	The employee-facing prompt only asks "what exactly will you do?" — it
+	does not pass work_activity, so this defaults to GENERAL_WORK_ACTIVITY.
+	WMS/HHT integrations that already know their activity keep passing it
+	explicitly."""
 	employee = _get_employee_for_user(employee)
 	description = (description or "").strip()
 	if not description:
@@ -183,7 +194,7 @@ def start_work(
 
 	session = _create_session(
 		employee,
-		work_activity,
+		work_activity or GENERAL_WORK_ACTIVITY,
 		target_qty=target_qty,
 		minutes=target_minutes,
 		reference_doctype=reference_doctype,

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.11.0 - 2026-09-17
+
+- **"Start Work" no longer asks the employee to pick a Work Activity.** The
+  Desk widget's forced "What work are you starting now?" popup, the mobile
+  PWA (`/mm_worker`), and the Staff App's Work Tracker module all now ask
+  only **"What exactly will you do?"** (free text) — the Work Activity
+  Master dropdown is gone from every one of them. `start_work`'s
+  `work_activity` argument is now optional and, when omitted, defaults to a
+  new generic **"General Work"** activity (seeded automatically on
+  install/migrate). WMS/HHT integrations that already pass an explicit
+  activity are unaffected. `Work Activity Master` and the manager-only
+  "Add to queue" flow are unchanged — this only removes the picker from the
+  employee's own start-work prompt.
+
 ## 0.10.1 - 2026-09-15
 
 - **Fix: Employee Work Log entries can now be deleted.** They previously

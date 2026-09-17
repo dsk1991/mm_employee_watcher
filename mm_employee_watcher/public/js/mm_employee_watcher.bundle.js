@@ -529,13 +529,6 @@ mm_employee_watcher.show_work_now_dialog = function () {
 		}
 		fields.push(
 			{
-				fieldname: "work_activity",
-				label: __("Work"),
-				fieldtype: "Link",
-				options: "Work Activity Master",
-				reqd: 1,
-			},
-			{
 				fieldname: "description",
 				label: __("What exactly will you do?"),
 				fieldtype: "Small Text",
@@ -595,7 +588,6 @@ mm_employee_watcher.show_work_now_dialog = function () {
 				frappe.call({
 					method: "mm_employee_watcher.api.start_work",
 					args: {
-						work_activity: values.work_activity,
 						target_qty: values.target_qty,
 						target_minutes: values.duration_minutes,
 						description: description,
@@ -643,7 +635,6 @@ mm_employee_watcher.show_work_now_dialog = function () {
 			d.fields_dict.queue_pick.$input.on("change", function () {
 				var it = byName[$(this).val()];
 				if (!it) return;
-				d.set_value("work_activity", it.work_activity);
 				d.set_value("description", it.instructions || it.work_activity);
 				if (it.target_qty) d.set_value("target_qty", it.target_qty);
 			});

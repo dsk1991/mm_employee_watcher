@@ -50,10 +50,15 @@ and [`docs/backend-architecture-hi.md`](docs/backend-architecture-hi.md)
   pill on the screen edge that still shows the running timer (remembered per
   browser); click the pill to restore it.
 - **Forced start prompt.** Opening ERPNext Desk with no active work shows a
-  **"What work are you starting now?"** popup (Work, required Description,
-  Duration, Target Qty). It will not close until work is started; the
-  employee can instead choose **"I'm on a break"**. While the employee stays
-  idle the popup re-appears every 2 minutes.
+  **"What work are you starting now?"** popup — just a required "What
+  exactly will you do?" description, Duration, and an optional Target Qty;
+  there is no Work Activity picker for the employee to fill in. It will not
+  close until work is started; the employee can instead choose **"I'm on a
+  break"**. While the employee stays idle the popup re-appears every 2
+  minutes. Every session started this way is filed under a generic
+  **"General Work"** activity (`start_work`'s `work_activity` argument is
+  optional and defaults to it); WMS/HHT clients that already know their
+  activity keep passing it explicitly.
 - **End-of-work prompt.** Ending work asks **"What did you do / complete?"**
   (required free text) via `end_work`, then immediately prompts for the next
   work.

@@ -157,7 +157,6 @@ window.csrf_token = "{{ csrf_token or '' }}";
 	var STATUS_LABEL = { WORKING: "Working", IDLE: "Idle", BREAK: "On break", BLOCKED: "Blocked", OFFLINE: "Offline", "OFF DUTY": "Off duty" };
 	var status = null;
 	var queue = [];
-	var activities = null;
 	var busy = false;
 
 	function escapeHtml(s) {
@@ -256,14 +255,6 @@ window.csrf_token = "{{ csrf_token or '' }}";
 		api("mm_employee_watcher.api.get_my_queue", {}).then(function (r) {
 			queue = (r.ok && r.body && r.body.message) || [];
 			if (after) after();
-		});
-	}
-
-	function loadActivities(cb) {
-		if (activities) return cb(activities);
-		api("mm_employee_watcher.api.list_work_activities", {}).then(function (r) {
-			activities = ((r.ok && r.body && r.body.message) || []).map(function (a) { return a.name; });
-			cb(activities);
 		});
 	}
 
@@ -381,9 +372,8 @@ window.csrf_token = "{{ csrf_token or '' }}";
 		var app = document.getElementById("app");
 		app.innerHTML =
 			'<div class="card">' +
-			'<div class="act">What work are you starting?</div>' +
-			'<label>Work</label><select id="fAct"><option>Loading…</option></select>' +
-			'<label>What exactly will you do?</label><textarea id="fDesc" placeholder="Describe the work"></textarea>' +
+			'<div class="act">What exactly will you do?</div>' +
+			'<textarea id="fDesc" placeholder="Describe the work"></textarea>' +
 			'<label>Duration (minutes)</label><input id="fMin" type="number" value="60" min="1">' +
 			'<label>Target qty (optional)</label><input id="fQty" type="number" min="0" step="any">' +
 			'<div class="err" id="fErr"></div>' +
@@ -391,24 +381,16 @@ window.csrf_token = "{{ csrf_token or '' }}";
 			'<button class="btn secondary" id="fCancel">Cancel</button>' +
 			"</div>";
 		document.getElementById("fCancel").onclick = render;
-		loadActivities(function (list) {
-			var sel = document.getElementById("fAct");
-			sel.innerHTML = list.length
-				? list.map(function (a) { return "<option>" + escapeHtml(a) + "</option>"; }).join("")
-				: '<option value="">No activities set up</option>';
-		});
 		document.getElementById("fGo").onclick = function () {
-			var activity = document.getElementById("fAct").value;
 			var desc = document.getElementById("fDesc").value.trim();
 			var minutes = document.getElementById("fMin").value || 60;
 			var qty = document.getElementById("fQty").value || null;
 			var err = document.getElementById("fErr");
-			if (!activity) { err.textContent = "Pick a work activity."; return; }
 			if (!desc) { err.textContent = "Please describe the work."; return; }
 			err.textContent = "";
 			withBusy(function (done) {
 				api("mm_employee_watcher.api.start_work", {
-					work_activity: activity, description: desc, target_minutes: minutes, target_qty: qty
+					description: desc, target_minutes: minutes, target_qty: qty
 				}).then(function (r) {
 					done();
 					if (r.ok) { toast("Work started"); loadStatus(); }

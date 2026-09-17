@@ -352,7 +352,6 @@ class MetadataTest(unittest.TestCase):
 		for method in (
 			"get_my_status",
 			"get_my_queue",
-			"list_work_activities",
 			"start_work",
 			"end_work",
 			"mark_break",
