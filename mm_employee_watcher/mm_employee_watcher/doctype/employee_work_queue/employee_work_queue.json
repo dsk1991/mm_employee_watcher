@@ -14,7 +14,10 @@
   "reference_name",
   "schedule",
   "for_date",
-  "instructions"
+  "instructions",
+  "zone",
+  "assigned_at",
+  "source_key"
  ],
  "fields": [
   {
@@ -24,7 +27,7 @@
    "in_standard_filter": 1,
    "label": "Employee",
    "options": "Employee",
-   "reqd": 1,
+   "description": "Empty = waiting in the pool for anyone to pick up.",
    "search_index": 1
   },
   {
@@ -90,6 +93,27 @@
    "fieldname": "instructions",
    "fieldtype": "Small Text",
    "label": "Instructions"
+  },
+  {
+   "fieldname": "zone",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Zone"
+  },
+  {
+   "fieldname": "assigned_at",
+   "fieldtype": "Datetime",
+   "label": "Picked Up At",
+   "read_only": 1
+  },
+  {
+   "description": "activity|doctype|name - keeps document events idempotent.",
+   "fieldname": "source_key",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Source Key",
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "index_web_pages_for_search": 1,

@@ -9,6 +9,7 @@ import frappe
 from frappe import _
 from frappe.utils import now_datetime, add_to_date, flt, cint, get_datetime, today
 
+from mm_employee_watcher import timing
 from mm_employee_watcher.utils import (
 	STATUS_WORKING,
 	STATUS_IDLE,
@@ -295,6 +296,29 @@ def start_reference_work(
 	return {"tracking": True, "created": True, "session": session.as_dict()}
 
 
+def _apply_time_accounting(session):
+	"""Fill waiting / working / paused seconds on a session that is ending.
+	Never blocks completing the work — accounting problems are only logged."""
+	try:
+		start = get_datetime(session.start_time)
+		end = get_datetime(session.actual_end_time)
+		events = frappe.get_all(
+			"Employee Work Log",
+			filters={"work_session": session.name},
+			fields=["event_type", "event_time"],
+			order_by="event_time asc, creation asc",
+			as_list=True,
+		)
+		parts = timing.compute_time_breakdown(events, start, end)
+		session.working_seconds = int(parts["working"])
+		session.paused_seconds = int(parts["paused"])
+		if session.queue_item:
+			queued_at = frappe.db.get_value("Employee Work Queue", session.queue_item, "creation")
+			session.waiting_seconds = int(timing.waiting_seconds(queued_at, start))
+	except Exception:
+		frappe.log_error(title="MM Employee Watcher time accounting failed", message=frappe.get_traceback())
+
+
 def _complete_session(session, completed_qty=None, remarks=None):
 	"""Close a work session and drop the employee to IDLE. Queued work is
 	never auto-started — the employee picks the next task from their queue
@@ -305,6 +329,7 @@ def _complete_session(session, completed_qty=None, remarks=None):
 
 	session.status = SESSION_COMPLETED
 	session.actual_end_time = now_datetime()
+	_apply_time_accounting(session)
 	if completed_qty is not None:
 		completed_qty = flt(completed_qty)
 		if completed_qty < 0:
@@ -543,6 +568,171 @@ def start_queue_item(queue_item: str, target_minutes: int | None = None):
 	)
 	frappe.db.set_value("Employee Work Queue", item.name, "status", "Assigned")
 	return session.as_dict()
+
+
+def _cancel_session(session, remarks=None):
+	"""Close an open session without counting it as completed work (task
+	released, reassigned, or its document was cancelled) and free the
+	employee if this was their current work."""
+	if session.status not in OPEN_SESSION_STATUSES:
+		return False
+	session.status = SESSION_CANCELLED
+	session.actual_end_time = now_datetime()
+	_apply_time_accounting(session)
+	if remarks:
+		session.notes = remarks
+	session.save(ignore_permissions=True)
+	current = frappe.db.get_value("Employee Current Status", {"employee": session.employee}, "current_session")
+	if current == session.name:
+		set_status(session.employee, STATUS_IDLE, None)
+	return True
+
+
+def _employee_zones(employee):
+	if not frappe.db.has_column("Employee", "mm_zones"):
+		return []
+	raw = frappe.db.get_value("Employee", employee, "mm_zones") or ""
+	return [z.strip() for z in raw.replace("\n", ",").split(",") if z.strip()]
+
+
+@frappe.whitelist()
+def claim_next_work():
+	"""One tap for the worker: take the next task and start its timer.
+
+	Own assigned (Pending) items come first; otherwise the best unassigned
+	item in the shared pool (priority, then the employee's own zones, then
+	oldest). If the employee is already working, that session is returned —
+	one active work per employee. The pool row is locked while claiming so
+	two workers can never get the same task."""
+	employee = _get_employee_for_user()
+	if not is_tracking_enabled(employee):
+		frappe.throw(_("Work tracking is disabled for this user"))
+
+	existing = get_active_session(employee)
+	if existing:
+		return {"claimed": False, "session": existing.as_dict(), **_reference_of(existing)}
+
+	fields = ["name", "work_activity", "priority", "zone", "creation", "employee"]
+	mine = frappe.get_all(
+		"Employee Work Queue",
+		filters={"employee": employee, "status": "Pending", "reference_name": ["is", "set"]},
+		fields=fields,
+		for_update=True,
+	)
+	chosen = timing.pick_next(mine)
+	if not chosen:
+		pool = frappe.get_all(
+			"Employee Work Queue",
+			filters={"status": "Pending", "employee": ["is", "not set"], "reference_name": ["is", "set"]},
+			fields=fields,
+			for_update=True,
+		)
+		chosen = timing.pick_next(pool, _employee_zones(employee))
+	if not chosen:
+		return {"claimed": False, "session": None, "empty": True}
+
+	item = frappe.get_doc("Employee Work Queue", chosen["name"])
+	session = _create_session(
+		employee,
+		item.work_activity,
+		target_qty=item.target_qty,
+		reference_doctype=item.reference_doctype,
+		reference_name=item.reference_name,
+		source_app="WMS",
+		description=(item.instructions or item.work_activity),
+		queue_item=item.name,
+	)
+	item.db_set({"employee": employee, "status": "Assigned", "assigned_at": now_datetime()})
+	publish_pool_change()
+	return {"claimed": True, "session": session.as_dict(), **_reference_of(session)}
+
+
+def _reference_of(session):
+	return {
+		"reference_doctype": session.reference_doctype,
+		"reference_name": session.reference_name,
+		"queue_item": session.queue_item,
+	}
+
+
+def publish_pool_change():
+	"""Tell dashboards the pool changed (claim / release / new task)."""
+	frappe.publish_realtime(event="mm_employee_watcher:dashboard_update", message={"pool": True})
+
+
+@frappe.whitelist()
+def release_work(queue_item: str, reason: str | None = None):
+	"""Put a claimed task back in the pool (worker can't do it, or a manager
+	takes it away). The running timer is discarded, not counted as done."""
+	item = frappe.get_doc("Employee Work Queue", queue_item)
+	if item.employee != get_employee_for_user() and not _has_manager_role():
+		frappe.throw(_("This queue item belongs to another employee"), frappe.PermissionError)
+	if item.status != "Assigned":
+		frappe.throw(_("Only claimed work can be released"))
+	_release_item(item, reason)
+	return {"ok": True}
+
+
+def _release_item(item, reason=None):
+	for name in frappe.get_all(
+		"Employee Work Session",
+		filters={"queue_item": item.name, "status": ["in", list(OPEN_SESSION_STATUSES)]},
+		pluck="name",
+	):
+		_cancel_session(frappe.get_doc("Employee Work Session", name), reason)
+	item.db_set({"employee": None, "status": "Pending", "assigned_at": None})
+	publish_pool_change()
+
+
+@frappe.whitelist()
+def reassign_work(queue_item: str, employee: str):
+	"""Manager moves a task to a specific employee's own queue."""
+	if not _has_manager_role():
+		frappe.throw(_("Only a watcher manager can reassign work"), frappe.PermissionError)
+	if not frappe.db.exists("Employee", {"name": employee, "status": "Active"}):
+		frappe.throw(_("Employee {0} is not active").format(employee))
+	item = frappe.get_doc("Employee Work Queue", queue_item)
+	if item.status not in ("Pending", "Assigned"):
+		frappe.throw(_("This queue item is already {0}").format(item.status))
+	if item.status == "Assigned":
+		_release_item(item, _("Reassigned"))
+	item.db_set({"employee": employee, "status": "Pending"})
+	publish_pool_change()
+	return {"ok": True}
+
+
+@frappe.whitelist()
+def get_reference_work(reference_doctype: str, reference_name: str):
+	"""Task state and times for one document (Pick List, ...): used by the
+	PWA/board to show who has it and its waiting/working time."""
+	if not frappe.has_permission(reference_doctype, "read", doc=reference_name):
+		frappe.throw(_("You do not have permission to use the referenced document"), frappe.PermissionError)
+	item = frappe.get_all(
+		"Employee Work Queue",
+		filters={"reference_doctype": reference_doctype, "reference_name": reference_name},
+		fields=["name", "work_activity", "employee", "status", "creation", "assigned_at"],
+		order_by="creation desc",
+		limit=1,
+	)
+	sessions = frappe.get_all(
+		"Employee Work Session",
+		filters={"reference_doctype": reference_doctype, "reference_name": reference_name},
+		fields=[
+			"name",
+			"employee",
+			"employee_name",
+			"work_activity",
+			"status",
+			"start_time",
+			"actual_end_time",
+			"waiting_seconds",
+			"working_seconds",
+			"paused_seconds",
+		],
+		order_by="creation desc",
+		limit=5,
+	)
+	return {"queue_item": item[0] if item else None, "sessions": sessions}
 
 
 @frappe.whitelist()

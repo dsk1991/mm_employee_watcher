@@ -45,6 +45,15 @@ doc_events = {
 		"after_insert": "mm_employee_watcher.api.record_document_activity",
 		"on_submit": "mm_employee_watcher.api.record_document_activity",
 	},
+	# Warehouse work queue: which of these events create / complete / cancel
+	# work is configured per Work Activity Master and switched on in MM
+	# Watcher Settings ("Enable WMS Auto Queue"). Delivery Note and Purchase
+	# Receipt rows are added with the Delivery and Putaway slices.
+	"Pick List": {
+		"after_insert": "mm_employee_watcher.wms_events.handle_document_event",
+		"on_submit": "mm_employee_watcher.wms_events.handle_document_event",
+		"on_cancel": "mm_employee_watcher.wms_events.handle_document_event",
+	},
 }
 
 # Deletion
@@ -57,7 +66,7 @@ doc_events = {
 # just recreated a fresh tracking row, recreating the same block. These are
 # append-only activity logs, not relational data, so they are excluded from
 # that check the same way core log doctypes (Comment, Version, ...) are.
-ignore_links_on_delete = ["Employee Work Log", "Employee Work Session"]
+ignore_links_on_delete = ["Employee Work Log", "Employee Work Session", "Employee Work Queue"]
 
 # Scheduled tasks
 # ---------------

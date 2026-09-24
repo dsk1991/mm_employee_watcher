@@ -90,8 +90,27 @@ def repair_doctype_modules():
 
 def setup_required_records():
 	create_user_tracking_field()
+	create_employee_zones_field()
 	create_app_roles()
 	create_default_activities()
+
+
+def create_employee_zones_field():
+	"""Warehouse zones an employee works in (comma separated), so the pool
+	hands them tasks from their own zones first. A Custom Field on Employee."""
+	if frappe.db.exists("Custom Field", {"dt": "Employee", "fieldname": "mm_zones"}):
+		return
+	frappe.get_doc(
+		{
+			"doctype": "Custom Field",
+			"dt": "Employee",
+			"fieldname": "mm_zones",
+			"label": "Warehouse Zones (MM Employee Watcher)",
+			"fieldtype": "Small Text",
+			"insert_after": "user_id",
+			"description": "Comma separated rack zones this employee works in, e.g. A, B. Empty = any zone.",
+		}
+	).insert(ignore_permissions=True)
 
 
 TRACKING_FIELD_DESCRIPTION = (

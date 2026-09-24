@@ -5,6 +5,8 @@
  "engine": "InnoDB",
  "field_order": [
   "alerts_enabled",
+  "section_break_wms",
+  "wms_auto_queue_enabled",
   "section_break_thresholds",
   "idle_alert_minutes",
   "overdue_alert_minutes",
@@ -21,6 +23,18 @@
    "fieldname": "alerts_enabled",
    "fieldtype": "Check",
    "label": "Enable Supervisor Alerts"
+  },
+  {
+   "fieldname": "section_break_wms",
+   "fieldtype": "Section Break",
+   "label": "Warehouse Work Queue"
+  },
+  {
+   "default": "0",
+   "description": "Queue Picking/Delivery/Putaway work automatically from Pick List, Delivery Note and Purchase Receipt events, and let staff claim the next task.",
+   "fieldname": "wms_auto_queue_enabled",
+   "fieldtype": "Check",
+   "label": "Enable WMS Auto Queue"
   },
   {
    "fieldname": "section_break_thresholds",

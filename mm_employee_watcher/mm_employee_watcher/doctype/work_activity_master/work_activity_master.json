@@ -13,6 +13,12 @@
   "requires_manual_done",
   "is_document_linked",
   "reference_doctype",
+  "auto_queue_section",
+  "create_event",
+  "complete_event",
+  "cancel_event",
+  "follow_up_activity",
+  "zone_aware",
   "description"
  ],
  "fields": [
@@ -66,6 +72,46 @@
    "fieldtype": "Link",
    "label": "Reference DocType",
    "options": "DocType"
+  },
+  {
+   "collapsible": 1,
+   "depends_on": "is_document_linked",
+   "description": "Work is queued automatically from the Reference DocType's events (only when WMS auto-queue is enabled in MM Watcher Settings).",
+   "fieldname": "auto_queue_section",
+   "fieldtype": "Section Break",
+   "label": "Auto Queue From Document"
+  },
+  {
+   "fieldname": "create_event",
+   "fieldtype": "Select",
+   "label": "Queue Work On",
+   "options": "\nAfter Insert\nOn Submit"
+  },
+  {
+   "fieldname": "complete_event",
+   "fieldtype": "Select",
+   "label": "Complete Work On",
+   "options": "\nOn Submit"
+  },
+  {
+   "fieldname": "cancel_event",
+   "fieldtype": "Select",
+   "label": "Cancel Work On",
+   "options": "\nOn Cancel"
+  },
+  {
+   "description": "Queued for the same document when this work is completed (e.g. Picking -> Delivery).",
+   "fieldname": "follow_up_activity",
+   "fieldtype": "Link",
+   "label": "Follow-up Activity",
+   "options": "Work Activity Master"
+  },
+  {
+   "default": "0",
+   "description": "Prefer staff whose zones match the document's rack zone.",
+   "fieldname": "zone_aware",
+   "fieldtype": "Check",
+   "label": "Zone Aware"
   },
   {
    "fieldname": "description",

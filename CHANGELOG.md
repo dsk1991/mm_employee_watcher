@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.12.0 - 2026-09-24
+
+- **Warehouse work queue (Picking first).** With *Enable WMS Auto Queue* on in
+  MM Watcher Settings (default off), a new Pick List is queued into a shared
+  pool, a worker taps **`claim_next_work`** to take the best task (priority,
+  then their `Warehouse Zones`, then oldest) and the timer starts; submitting
+  the Pick List stops it and queues the follow-up Delivery task; cancelling it
+  drops the work. Nothing is added to Pick List / Delivery Note / Purchase
+  Receipt — Work Activity Master rows (`create_event`, `complete_event`,
+  `cancel_event`, `follow_up_activity`, `zone_aware`) drive it.
+- Sessions now store `waiting_seconds`, `working_seconds` and `paused_seconds`
+  (pauses / blocks / breaks excluded from working time).
+- New API: `claim_next_work`, `release_work`, `reassign_work`,
+  `get_reference_work`. Employee Work Queue `employee` is optional (pool).
+- New Custom Field `Employee.mm_zones`; patch `v0_4_0_wms_activities`.
+
+
 ## 0.11.0 - 2026-09-17
 
 - **"Start Work" no longer asks the employee to pick a Work Activity.** The

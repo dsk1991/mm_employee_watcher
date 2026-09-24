@@ -154,6 +154,34 @@
    "label": "Completed Qty"
   },
   {
+   "fieldname": "section_break_times",
+   "fieldtype": "Section Break",
+   "label": "Time Accounting"
+  },
+  {
+   "default": "0",
+   "description": "Queue created -> work started.",
+   "fieldname": "waiting_seconds",
+   "fieldtype": "Int",
+   "label": "Waiting (seconds)",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "description": "Start -> finish, excluding pauses, blocks and breaks.",
+   "fieldname": "working_seconds",
+   "fieldtype": "Int",
+   "label": "Working (seconds)",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "paused_seconds",
+   "fieldtype": "Int",
+   "label": "Paused / Blocked / Break (seconds)",
+   "read_only": 1
+  },
+  {
    "fieldname": "section_break_2",
    "fieldtype": "Section Break",
    "label": "Notes"
