@@ -51,9 +51,17 @@ doc_events = {
 	# Receipt rows are added with the Delivery and Putaway slices.
 	"Pick List": {
 		"after_insert": "mm_employee_watcher.wms_events.handle_document_event",
-		"on_submit": "mm_employee_watcher.wms_events.handle_document_event",
+		"on_submit": [
+			"mm_employee_watcher.wms_events.handle_document_event",
+			"mm_employee_watcher.wms_events.complete_sections_on_submit",
+		],
 		"on_cancel": "mm_employee_watcher.wms_events.handle_document_event",
 	},
+	# Packing / Putaway / Receiving sections finish when their document is submitted.
+	"Delivery Note": {"on_submit": "mm_employee_watcher.wms_events.complete_sections_on_submit"},
+	"Stock Entry": {"on_submit": "mm_employee_watcher.wms_events.complete_sections_on_submit"},
+	"Purchase Receipt": {"on_submit": "mm_employee_watcher.wms_events.complete_sections_on_submit"},
+	"Purchase Invoice": {"on_submit": "mm_employee_watcher.wms_events.complete_sections_on_submit"},
 }
 
 # Deletion

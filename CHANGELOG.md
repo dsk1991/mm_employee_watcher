@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.14.0 - 2026-09-25
+
+- **Shifts:** new *Work Shift* (start, end, grace, weekly off) and an Employee field
+  *Work Shift*. Tracking (Work Now popup, idle reminders, supervisor alerts) applies only
+  inside the employee's shift.
+- **Attendance:** *Punch In / Punch Out* from the PWA with the phone's location, stored in
+  *Employee Punch* (and mirrored to HRMS *Employee Checkin* when HRMS is installed).
+  Optional office geofence, "punch needs location" and "require punch in for tracking" in
+  MM Watcher Settings.
+- **Work sections:** starting a Pick List / Packing / Putaway / Receiving document starts a
+  section (timer) automatically; starting another parks the running one and coming back
+  resumes it; a document being worked by someone else refuses the second person with a
+  message; submitting the document completes its sections. My Work lists parked sections.
+
+
 ## 0.13.0 - 2026-09-25
 
 - **My Work dashboard API** `get_my_dashboard`: an employee's own status, assigned

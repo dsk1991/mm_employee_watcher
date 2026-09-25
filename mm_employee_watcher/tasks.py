@@ -29,6 +29,7 @@ from mm_employee_watcher.utils import (
 	log_event,
 	offline_cutoff,
 	get_watcher_settings,
+	duty_state,
 )
 
 
@@ -150,6 +151,8 @@ def raise_supervisor_alerts():
 	)
 	for row in statuses:
 		if not is_tracking_enabled(row.employee):
+			continue
+		if not duty_state(row.employee)["on_duty"]:
 			continue
 
 		session = None
@@ -280,6 +283,8 @@ def check_break_overrun():
 	)
 	for row in rows:
 		if not is_tracking_enabled(row.employee):
+			continue
+		if not duty_state(row.employee)["on_duty"]:
 			continue
 		set_status(row.employee, STATUS_IDLE, row.current_session)
 		frappe.db.set_value(
@@ -435,6 +440,8 @@ def nudge_idle_employees():
 		if not since or _minutes_since(since, now) < minutes:
 			continue
 		if not is_tracking_enabled(row.employee):
+			continue
+		if not duty_state(row.employee)["on_duty"]:
 			continue
 		key = f"mm_idle_nudge:{row.employee}"
 		if frappe.cache.get_value(key):

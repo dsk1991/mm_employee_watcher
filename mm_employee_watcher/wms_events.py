@@ -158,3 +158,14 @@ def zone_for(doc):
 	except Exception:
 		return None
 	return zones.most_common(1)[0][0] if zones else None
+
+
+def complete_sections_on_submit(doc, method=None):
+	"""A warehouse document was submitted (from any screen): finish the
+	working sections open on it. Independent of the auto-queue switch."""
+	try:
+		from mm_employee_watcher.sections import complete_reference_sessions
+
+		complete_reference_sessions(doc.doctype, doc.name)
+	except Exception:
+		frappe.log_error(title="MM Employee Watcher section completion failed", message=frappe.get_traceback())

@@ -28,6 +28,10 @@ from mm_employee_watcher.utils import (
 	publish_status,
 	set_status,
 	log_event,
+	duty_state,
+	get_work_shift,
+	last_punch,
+	STATUS_OFF_DUTY,
 )
 
 MANAGER_ROLES = {"System Manager", "Employee Watcher Manager"}
@@ -596,7 +600,7 @@ def _employee_zones(employee):
 
 
 @frappe.whitelist()
-def claim_next_work(work_activity: str | None = None):
+def claim_next_work(work_activity: str | None = None, park_current: int = 0):
 	"""One tap for the worker: take the next task and start its timer.
 
 	Own assigned (Pending) items come first; otherwise the best unassigned
@@ -610,7 +614,7 @@ def claim_next_work(work_activity: str | None = None):
 		frappe.throw(_("Work tracking is disabled for this user"))
 
 	existing = get_active_session(employee)
-	if existing:
+	if existing and (not cint(park_current) or (work_activity and existing.work_activity == work_activity)):
 		return {"claimed": False, "session": existing.as_dict(), **_reference_of(existing)}
 
 	fields = ["name", "work_activity", "priority", "zone", "creation", "employee"]
@@ -648,6 +652,11 @@ def claim_next_work(work_activity: str | None = None):
 		return {"claimed": False, "session": None, "empty": True}
 
 	item = frappe.get_doc("Employee Work Queue", chosen["name"])
+	if existing:
+		# switching: set the running section aside so it can be resumed later
+		from mm_employee_watcher.sections import park_session
+
+		park_session(existing, _("Switched to {0}").format(item.reference_name or item.work_activity))
 	session = _create_session(
 		employee,
 		item.work_activity,
@@ -844,6 +853,10 @@ def get_my_status(employee: str | None = None):
 		"tracking": tracking,
 		**status,
 	}
+	duty = duty_state(employee)
+	result.update(
+		{"on_duty": duty["on_duty"], "duty_reason": duty["reason"], "punched_in": duty["punched_in"], "shift": duty["shift"]}
+	)
 	if status["current_session"]:
 		session = frappe.get_doc("Employee Work Session", status["current_session"])
 		result["session"] = session.as_dict()
@@ -993,7 +1006,7 @@ def get_my_dashboard(days: int = 7):
 	if not employee:
 		return {"tracking": False, "reason": "no_employee"}
 	if not is_tracking_enabled(employee):
-		return {"tracking": False, "reason": "disabled", "employee": employee}
+		return {"tracking": False, "reason": "disabled", "employee": employee, "attendance": _attendance_summary(employee)}
 	days = min(max(cint(days) or 7, 1), 31)
 	now = now_datetime()
 	today_start = get_datetime(today())
@@ -1053,6 +1066,8 @@ def get_my_dashboard(days: int = 7):
 		if since:
 			idle_minutes = max(0, int(time_diff_in_seconds(now, get_datetime(since)) // 60))
 
+	from mm_employee_watcher.sections import parked_sessions
+
 	assigned = get_my_queue(employee)
 	pool_count = len(
 		frappe.get_all(
@@ -1079,6 +1094,8 @@ def get_my_dashboard(days: int = 7):
 	}
 	return {
 		"tracking": True,
+		"attendance": _attendance_summary(employee),
+		"parked": parked_sessions(employee),
 		"employee": employee,
 		"days": days,
 		"today": {
@@ -1106,3 +1123,175 @@ def get_my_dashboard(days: int = 7):
 			for s in done[:8]
 		],
 	}
+
+
+# ---------------------------------------------------------------------------
+# Attendance: Punch In / Punch Out with the phone's location
+# ---------------------------------------------------------------------------
+
+
+def _attendance_settings():
+	cfg = frappe.db.get_singles_dict("MM Watcher Settings") or {}
+	return {
+		"needs_location": cint(cfg.get("punch_requires_location", 1)),
+		"geofence": cint(cfg.get("geofence_enabled", 0))
+		and flt(cfg.get("geofence_latitude")) != 0
+		and flt(cfg.get("geofence_longitude")) != 0,
+		"block": cint(cfg.get("geofence_block", 0)),
+		"lat": flt(cfg.get("geofence_latitude")),
+		"lng": flt(cfg.get("geofence_longitude")),
+		"radius": cint(cfg.get("geofence_radius_m", 200)) or 200,
+	}
+
+
+def _attendance_summary(employee):
+	duty = duty_state(employee)
+	cfg = _attendance_settings()
+	since = add_to_date(get_datetime(today()), days=-1)
+	punches = frappe.get_all(
+		"Employee Punch",
+		filters={"employee": employee, "punch_time": [">=", since]},
+		fields=["log_type", "punch_time", "within_geofence", "distance_m"],
+		order_by="punch_time asc",
+		limit=20,
+	)
+	shift = get_work_shift(employee)
+	return {
+		"punched_in": duty["punched_in"],
+		"on_duty": duty["on_duty"],
+		"reason": duty["reason"],
+		"shift": (
+			{
+				"name": shift.name,
+				"start": str(shift.start_time),
+				"end": str(shift.end_time),
+				"weekly_off": shift.weekly_off or "",
+			}
+			if shift
+			else None
+		),
+		"needs_location": bool(cfg["needs_location"]),
+		"geofence": bool(cfg["geofence"]),
+		"punches": [
+			{
+				"log_type": p.log_type,
+				"time": str(p.punch_time),
+				"inside": cint(p.within_geofence),
+				"distance_m": round(flt(p.distance_m)) if p.distance_m else None,
+			}
+			for p in punches
+		],
+	}
+
+
+@frappe.whitelist()
+def get_punch_status():
+	"""Shift, punch state and today's punches for the logged-in employee."""
+	employee = get_employee_for_user()
+	if not employee:
+		return {"employee": None}
+	return {"employee": employee, **_attendance_summary(employee)}
+
+
+@frappe.whitelist(methods=["POST"])
+def punch(
+	log_type: str,
+	latitude: float | None = None,
+	longitude: float | None = None,
+	accuracy: float | None = None,
+	note: str | None = None,
+	device: str | None = None,
+):
+	"""Punch In or Out from the phone. The location (from the browser's GPS)
+	is stored with the punch; if an office point is set in MM Watcher
+	Settings the punch is marked Inside / Outside and can be refused."""
+	employee = _get_employee_for_user()
+	log_type = (log_type or "").upper()
+	if log_type not in ("IN", "OUT"):
+		frappe.throw(_("Punch type must be IN or OUT"))
+	cfg = _attendance_settings()
+	lat = flt(latitude) if latitude not in (None, "") else None
+	lng = flt(longitude) if longitude not in (None, "") else None
+	if cfg["needs_location"] and (lat is None or lng is None):
+		frappe.throw(_("Punch ke liye location zaroori hai. Phone mein location allow karke dobara try karein."))
+
+	duty = duty_state(employee)
+	if log_type == "IN" and duty["punched_in"]:
+		frappe.throw(_("Aap pehle se Punch In hain"))
+	if log_type == "OUT" and not duty["punched_in"]:
+		frappe.throw(_("Aap abhi Punch In nahi hain"))
+
+	distance = None
+	inside = 0
+	if cfg["geofence"] and lat is not None and lng is not None:
+		distance = timing.haversine_m(lat, lng, cfg["lat"], cfg["lng"])
+		inside = 1 if distance <= cfg["radius"] else 0
+		if log_type == "IN" and cfg["block"] and not inside:
+			frappe.throw(
+				_("Aap allowed jagah se {0} m door hain. Office ke paas jakar Punch In karein.").format(round(distance))
+			)
+
+	if log_type == "OUT":
+		current = get_active_session(employee)
+		if current and current.status in (SESSION_ACTIVE, SESSION_EXTENDED, SESSION_BLOCKED):
+			frappe.throw(
+				_("Pehle apna chalta kaam ({0}) khatam ya pause karein, phir Punch Out karein").format(
+					current.work_activity
+				)
+			)
+
+	doc = frappe.get_doc(
+		{
+			"doctype": "Employee Punch",
+			"employee": employee,
+			"log_type": log_type,
+			"punch_time": now_datetime(),
+			"shift": duty["shift"],
+			"source": "PWA",
+			"device": (device or "")[:300],
+			"latitude": lat,
+			"longitude": lng,
+			"accuracy_m": flt(accuracy) if accuracy not in (None, "") else None,
+			"distance_m": round(distance, 1) if distance is not None else None,
+			"within_geofence": inside,
+			"note": note,
+		}
+	).insert(ignore_permissions=True)
+
+	_mirror_to_hrms_checkin(doc)
+	if is_tracking_enabled(employee):
+		if log_type == "IN":
+			status_doc = get_or_create_status(employee)
+			if status_doc.status in ("OFFLINE", STATUS_OFF_DUTY):
+				set_status(employee, STATUS_IDLE, None)
+		else:
+			set_status(employee, STATUS_OFF_DUTY, None)
+	return {
+		"ok": True,
+		"log_type": log_type,
+		"inside": bool(inside) if cfg["geofence"] else None,
+		"distance_m": round(distance) if distance is not None else None,
+		**_attendance_summary(employee),
+	}
+
+
+def _mirror_to_hrms_checkin(punch_doc):
+	"""If HRMS is installed, also create its Employee Checkin so its attendance
+	tools see the punch. Best effort: never fails the punch."""
+	if not frappe.db.exists("DocType", "Employee Checkin"):
+		return
+	try:
+		values = {
+			"doctype": "Employee Checkin",
+			"employee": punch_doc.employee,
+			"log_type": punch_doc.log_type,
+			"time": punch_doc.punch_time,
+			"device_id": "MM Staff PWA",
+		}
+		meta = frappe.get_meta("Employee Checkin")
+		if meta.has_field("latitude") and punch_doc.latitude is not None:
+			values["latitude"] = punch_doc.latitude
+			values["longitude"] = punch_doc.longitude
+		frappe.get_doc(values).insert(ignore_permissions=True)
+	except Exception:
+		frappe.log_error(title="MM Employee Watcher HRMS checkin mirror failed", message=frappe.get_traceback())

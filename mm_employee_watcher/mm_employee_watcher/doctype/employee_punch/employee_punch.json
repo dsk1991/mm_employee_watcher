@@ -1,0 +1,160 @@
+{
+ "actions": [],
+ "autoname": "EPN-.#####",
+ "creation": "2026-09-25 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "employee",
+  "employee_name",
+  "log_type",
+  "punch_time",
+  "column_break_1",
+  "shift",
+  "source",
+  "device",
+  "section_break_loc",
+  "latitude",
+  "longitude",
+  "accuracy_m",
+  "column_break_2",
+  "distance_m",
+  "within_geofence",
+  "note"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Employee",
+   "options": "Employee",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fetch_from": "employee.employee_name",
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Employee Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "log_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Type",
+   "options": "IN\nOUT",
+   "reqd": 1
+  },
+  {
+   "fieldname": "punch_time",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Time",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "shift",
+   "fieldtype": "Link",
+   "label": "Shift",
+   "options": "Work Shift"
+  },
+  {
+   "default": "PWA",
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Source",
+   "options": "PWA\nDesk\nOther"
+  },
+  {
+   "fieldname": "device",
+   "fieldtype": "Small Text",
+   "label": "Device"
+  },
+  {
+   "fieldname": "section_break_loc",
+   "fieldtype": "Section Break",
+   "label": "Location"
+  },
+  {
+   "fieldname": "latitude",
+   "fieldtype": "Float",
+   "label": "Latitude",
+   "precision": "9"
+  },
+  {
+   "fieldname": "longitude",
+   "fieldtype": "Float",
+   "label": "Longitude",
+   "precision": "9"
+  },
+  {
+   "description": "GPS accuracy in metres reported by the phone.",
+   "fieldname": "accuracy_m",
+   "fieldtype": "Float",
+   "label": "Accuracy (m)"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Distance from the office point set in MM Watcher Settings.",
+   "fieldname": "distance_m",
+   "fieldtype": "Float",
+   "label": "Distance (m)"
+  },
+  {
+   "default": "0",
+   "fieldname": "within_geofence",
+   "fieldtype": "Check",
+   "label": "Inside Allowed Area"
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Note"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-25 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "MM Employee Watcher",
+ "name": "Employee Punch",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Employee Watcher Manager"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

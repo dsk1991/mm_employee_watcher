@@ -271,3 +271,62 @@ def get_watcher_settings():
 		u for u in recipients if frappe.db.get_value("User", u, "enabled")
 	]
 	return out
+
+
+# ---------------------------------------------------------------------------
+# Shift and punch (attendance) — decides whether an employee is "on duty",
+# i.e. whether the Work Now popup, idle reminders and supervisor alerts apply.
+# ---------------------------------------------------------------------------
+
+PUNCH_STALE_HOURS = 18  # a Punch In older than this is treated as a forgotten Punch Out
+
+
+def get_work_shift(employee: str):
+	"""The employee's Work Shift row (start/end/grace/weekly off) or None."""
+	if not frappe.db.has_column("Employee", "mm_work_shift"):
+		return None
+	name = frappe.db.get_value("Employee", employee, "mm_work_shift")
+	if not name:
+		return None
+	return frappe.db.get_value(
+		"Work Shift", name, ["name", "start_time", "end_time", "grace_minutes", "weekly_off"], as_dict=True
+	)
+
+
+def last_punch(employee: str):
+	rows = frappe.get_all(
+		"Employee Punch",
+		filters={"employee": employee},
+		fields=["name", "log_type", "punch_time", "within_geofence", "distance_m"],
+		order_by="punch_time desc, creation desc",
+		limit=1,
+	)
+	return rows[0] if rows else None
+
+
+def duty_state(employee: str, at=None) -> dict:
+	"""{"on_duty", "reason", "shift", "punched_in", "last_punch"}.
+
+	Tracking follows the employee's Work Shift (plus grace, minus weekly off).
+	If "Require Punch In for Tracking" is on, they must also be punched in. A
+	punched-in employee stays tracked outside the shift window (overtime)."""
+	from mm_employee_watcher import timing
+
+	at = get_datetime(at) if at else now_datetime()
+	shift = get_work_shift(employee)
+	punch = last_punch(employee)
+	punched_in = bool(punch and punch.log_type == "IN")
+	if punched_in and time_diff_in_seconds(at, get_datetime(punch.punch_time)) > PUNCH_STALE_HOURS * 3600:
+		punched_in = False
+	info = {
+		"shift": shift.name if shift else None,
+		"punched_in": punched_in,
+		"last_punch": {"log_type": punch.log_type, "punch_time": str(punch.punch_time)} if punch else None,
+	}
+	if cint(frappe.db.get_single_value("MM Watcher Settings", "require_punch_in")) and not punched_in:
+		return {**info, "on_duty": False, "reason": "not_punched_in"}
+	if shift and not punched_in:
+		off = [d for d in (shift.weekly_off or "").split(",")]
+		if not timing.in_shift_window(at, shift.start_time, shift.end_time, shift.grace_minutes, off):
+			return {**info, "on_duty": False, "reason": "off_shift"}
+	return {**info, "on_duty": True, "reason": None}

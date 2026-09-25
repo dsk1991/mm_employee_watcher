@@ -90,6 +90,37 @@ class SuggestionsTest(unittest.TestCase):
 		self.assertTrue(timing.build_suggestions({}))
 
 
+class ShiftAndDistanceTest(unittest.TestCase):
+	def test_day_shift_with_grace(self):
+		mon = datetime(2026, 9, 21, 9, 0)  # Monday
+		self.assertTrue(timing.in_shift_window(mon.replace(hour=9, minute=20), "09:30", "18:00", 15))
+		self.assertFalse(timing.in_shift_window(mon.replace(hour=8, minute=0), "09:30", "18:00", 15))
+		self.assertTrue(timing.in_shift_window(mon.replace(hour=18, minute=10), "09:30", "18:00", 15))
+		self.assertFalse(timing.in_shift_window(mon.replace(hour=18, minute=30), "09:30", "18:00", 15))
+
+	def test_weekly_off(self):
+		sun = datetime(2026, 9, 27, 12, 0)
+		self.assertFalse(timing.in_shift_window(sun, "09:30", "18:00", 0, ["Sun"]))
+		self.assertTrue(timing.in_shift_window(sun, "09:30", "18:00", 0, []))
+
+	def test_night_shift_crosses_midnight(self):
+		late = datetime(2026, 9, 21, 23, 30)
+		early = datetime(2026, 9, 22, 2, 0)
+		self.assertTrue(timing.in_shift_window(late, "22:00", "06:00"))
+		self.assertTrue(timing.in_shift_window(early, "22:00", "06:00"))
+		self.assertFalse(timing.in_shift_window(datetime(2026, 9, 22, 12, 0), "22:00", "06:00"))
+
+	def test_night_shift_weekly_off_uses_start_day(self):
+		# Sunday-night shift running into Monday morning is still the Sunday shift
+		mon_early = datetime(2026, 9, 28, 2, 0)
+		self.assertFalse(timing.in_shift_window(mon_early, "22:00", "06:00", 0, ["Sun"]))
+
+	def test_distance(self):
+		self.assertAlmostEqual(timing.haversine_m(26.2389, 73.0243, 26.2389, 73.0243), 0, places=3)
+		d = timing.haversine_m(26.2389, 73.0243, 26.2389, 73.0343)
+		self.assertTrue(950 < d < 1050)
+
+
 class WmsWiringTest(unittest.TestCase):
 	def read(self, *parts):
 		return (ROOT / "mm_employee_watcher" / Path(*parts)).read_text(encoding="utf-8")
@@ -115,6 +146,17 @@ class WmsWiringTest(unittest.TestCase):
 		self.assertIn("def get_my_dashboard", self.read("api.py"))
 		self.assertIn("def nudge_idle_employees", self.read("tasks.py"))
 		self.assertIn("nudge_idle_employees", self.read("hooks.py"))
+
+	def test_sections_attendance_wiring(self):
+		self.assertTrue((ROOT / "mm_employee_watcher" / "sections.py").exists())
+		api = self.read("api.py")
+		for name in ("def punch", "def get_punch_status", "def _attendance_summary"):
+			self.assertIn(name, api)
+		self.assertIn("complete_sections_on_submit", self.read("hooks.py"))
+		for doctype in ("work_shift", "employee_punch"):
+			folder = ROOT / "mm_employee_watcher" / "mm_employee_watcher" / "doctype" / doctype
+			for ext in ("json", "py"):
+				self.assertTrue((folder / f"{doctype}.{ext}").exists())
 
 	def test_claim_api_exists(self):
 		api = self.read("api.py")

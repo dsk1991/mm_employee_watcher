@@ -99,3 +99,41 @@ def build_suggestions(stats):
 	if not tips:
 		tips.append({"type": "good", "text": "Sab theek chal raha hai. Kaam ke end par batana na bhoolein ki kya kiya."})
 	return tips
+
+
+def haversine_m(lat1, lon1, lat2, lon2):
+	"""Great-circle distance in metres between two GPS points."""
+	from math import asin, cos, radians, sin, sqrt
+
+	r = 6371000.0
+	p1, p2 = radians(lat1), radians(lat2)
+	dp, dl = p2 - p1, radians(lon2 - lon1)
+	a = sin(dp / 2) ** 2 + cos(p1) * cos(p2) * sin(dl / 2) ** 2
+	return 2 * r * asin(sqrt(a))
+
+
+def _minutes(value):
+	"""Minutes since midnight of a datetime.time / timedelta / 'HH:MM[:SS]'."""
+	if hasattr(value, "total_seconds"):
+		return int(value.total_seconds() // 60) % 1440
+	if hasattr(value, "hour"):
+		return value.hour * 60 + value.minute
+	parts = str(value).split(":")
+	return int(parts[0]) * 60 + int(parts[1])
+
+
+def in_shift_window(now, start, end, grace_minutes=0, weekly_off=()):
+	"""True when `now` (datetime) is inside the shift plus grace on each side.
+	Handles night shifts (end before start); the weekly-off day is the day
+	the shift started on."""
+	names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+	off = {d.strip()[:3].title() for d in (weekly_off or ()) if d and d.strip()}
+	s, e, g = _minutes(start), _minutes(end), int(grace_minutes or 0)
+	cur = now.hour * 60 + now.minute
+	lo = s - g
+	hi = e + g + (1440 if e <= s else 0)
+	for day_back in (0, 1):
+		a, b = lo - 1440 * day_back, hi - 1440 * day_back
+		if a <= cur <= b and names[(now.weekday() - day_back) % 7] not in off:
+			return True
+	return False

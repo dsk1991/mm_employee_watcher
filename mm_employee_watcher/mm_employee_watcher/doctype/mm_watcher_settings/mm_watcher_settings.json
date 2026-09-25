@@ -12,6 +12,14 @@
   "overdue_alert_minutes",
   "blocked_alert_minutes",
   "idle_nudge_minutes",
+  "section_break_punch",
+  "require_punch_in",
+  "punch_requires_location",
+  "geofence_enabled",
+  "geofence_block",
+  "geofence_latitude",
+  "geofence_longitude",
+  "geofence_radius_m",
   "section_break_recipients",
   "alert_recipients",
   "section_break_retention",
@@ -69,6 +77,60 @@
    "fieldname": "idle_nudge_minutes",
    "fieldtype": "Int",
    "label": "Remind Employee After Idle (minutes)"
+  },
+  {
+   "fieldname": "section_break_punch",
+   "fieldtype": "Section Break",
+   "label": "Attendance (Punch In / Out)"
+  },
+  {
+   "default": "0",
+   "description": "Track an employee (Work Now popup, idle reminders, alerts) only after they Punch In. Off = tracking follows the Work Shift alone.",
+   "fieldname": "require_punch_in",
+   "fieldtype": "Check",
+   "label": "Require Punch In for Tracking"
+  },
+  {
+   "default": "1",
+   "description": "The employee must allow location on the phone to Punch In or Out.",
+   "fieldname": "punch_requires_location",
+   "fieldtype": "Check",
+   "label": "Punch Needs Location"
+  },
+  {
+   "default": "0",
+   "description": "Compare each punch with the office point below and mark it Inside / Outside.",
+   "fieldname": "geofence_enabled",
+   "fieldtype": "Check",
+   "label": "Check Location Against Office"
+  },
+  {
+   "default": "0",
+   "description": "Refuse Punch In when the employee is outside the allowed area (otherwise it is only marked Outside).",
+   "fieldname": "geofence_block",
+   "fieldtype": "Check",
+   "label": "Block Punch Outside Area"
+  },
+  {
+   "depends_on": "geofence_enabled",
+   "fieldname": "geofence_latitude",
+   "fieldtype": "Float",
+   "label": "Office Latitude",
+   "precision": "9"
+  },
+  {
+   "depends_on": "geofence_enabled",
+   "fieldname": "geofence_longitude",
+   "fieldtype": "Float",
+   "label": "Office Longitude",
+   "precision": "9"
+  },
+  {
+   "default": "200",
+   "depends_on": "geofence_enabled",
+   "fieldname": "geofence_radius_m",
+   "fieldtype": "Int",
+   "label": "Allowed Radius (metres)"
   },
   {
    "fieldname": "section_break_recipients",
