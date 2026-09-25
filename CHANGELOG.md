@@ -14,7 +14,7 @@
   (pauses / blocks / breaks excluded from working time).
 - New API: `claim_next_work`, `release_work`, `reassign_work`,
   `get_reference_work`. Employee Work Queue `employee` is optional (pool).
-- New Custom Field `Employee.mm_zones`; patch `v0_4_0_wms_activities`.
+- Zone preference is off for Picking (`zone_aware` = 0); `Employee.mm_zones` is only used if it is switched on later. Patches `v0_4_0_wms_activities`, `v0_4_1_picking_not_zone_wise`.
 
 
 ## 0.11.0 - 2026-09-17

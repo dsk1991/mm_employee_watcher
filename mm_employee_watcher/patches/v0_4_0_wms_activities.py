@@ -17,7 +17,7 @@ ACTIVITIES = {
 		"complete_event": "On Submit",
 		"cancel_event": "On Cancel",
 		"follow_up_activity": "Delivery",
-		"zone_aware": 1,
+		"zone_aware": 0,
 	},
 	"Delivery": {"default_duration_minutes": 30},
 }
