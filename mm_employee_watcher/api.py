@@ -596,14 +596,15 @@ def _employee_zones(employee):
 
 
 @frappe.whitelist()
-def claim_next_work():
+def claim_next_work(work_activity: str | None = None):
 	"""One tap for the worker: take the next task and start its timer.
 
 	Own assigned (Pending) items come first; otherwise the best unassigned
 	item in the shared pool (priority, then the employee's own zones, then
 	oldest). If the employee is already working, that session is returned —
 	one active work per employee. The pool row is locked while claiming so
-	two workers can never get the same task."""
+	two workers can never get the same task. `work_activity` limits the
+	search to one kind of work (e.g. the Pick List screen asks for Picking)."""
 	employee = _get_employee_for_user()
 	if not is_tracking_enabled(employee):
 		frappe.throw(_("Work tracking is disabled for this user"))
@@ -613,9 +614,10 @@ def claim_next_work():
 		return {"claimed": False, "session": existing.as_dict(), **_reference_of(existing)}
 
 	fields = ["name", "work_activity", "priority", "zone", "creation", "employee"]
+	scope = {"work_activity": work_activity} if work_activity else {}
 	mine = frappe.get_all(
 		"Employee Work Queue",
-		filters={"employee": employee, "status": "Pending", "reference_name": ["is", "set"]},
+		filters={"employee": employee, "status": "Pending", "reference_name": ["is", "set"], **scope},
 		fields=fields,
 		for_update=True,
 	)
@@ -623,7 +625,7 @@ def claim_next_work():
 	if not chosen:
 		pool = frappe.get_all(
 			"Employee Work Queue",
-			filters={"status": "Pending", "employee": ["is", "not set"], "reference_name": ["is", "set"]},
+			filters={"status": "Pending", "employee": ["is", "not set"], "reference_name": ["is", "set"], **scope},
 			fields=fields,
 			for_update=True,
 		)
