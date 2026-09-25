@@ -615,21 +615,35 @@ def claim_next_work(work_activity: str | None = None):
 
 	fields = ["name", "work_activity", "priority", "zone", "creation", "employee"]
 	scope = {"work_activity": work_activity} if work_activity else {}
-	mine = frappe.get_all(
-		"Employee Work Queue",
-		filters={"employee": employee, "status": "Pending", "reference_name": ["is", "set"], **scope},
-		fields=fields,
-		for_update=True,
-	)
-	chosen = timing.pick_next(mine)
-	if not chosen:
-		pool = frappe.get_all(
+	zones = _employee_zones(employee)
+	taken = []
+	chosen = None
+	for _attempt in range(5):
+		skip = {"name": ["not in", taken]} if taken else {}
+		mine = frappe.get_all(
 			"Employee Work Queue",
-			filters={"status": "Pending", "employee": ["is", "not set"], "reference_name": ["is", "set"], **scope},
+			filters={"employee": employee, "status": "Pending", "reference_name": ["is", "set"], **scope, **skip},
 			fields=fields,
-			for_update=True,
 		)
-		chosen = timing.pick_next(pool, _employee_zones(employee))
+		candidate = timing.pick_next(mine)
+		if not candidate:
+			pool = frappe.get_all(
+				"Employee Work Queue",
+				filters={"status": "Pending", "employee": ["is", "not set"], "reference_name": ["is", "set"], **scope, **skip},
+				fields=fields,
+			)
+			candidate = timing.pick_next(pool, zones)
+		if not candidate:
+			break
+		# lock just this row and make sure nobody claimed it a moment ago
+		locked = frappe.db.sql(
+			"SELECT name FROM `tabEmployee Work Queue` WHERE name=%s AND status='Pending' FOR UPDATE",
+			candidate["name"],
+		)
+		if locked:
+			chosen = candidate
+			break
+		taken.append(candidate["name"])
 	if not chosen:
 		return {"claimed": False, "session": None, "empty": True}
 
