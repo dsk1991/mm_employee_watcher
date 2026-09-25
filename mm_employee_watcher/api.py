@@ -986,8 +986,14 @@ def record_document_activity(doc, method=None):
 @frappe.whitelist()
 def get_my_dashboard(days: int = 7):
 	"""The logged-in employee's own work numbers, assigned work and tips for
-	the PWA "My Work" screen. Only their own data is ever returned."""
-	employee = _get_employee_for_user()
+	the PWA "My Work" screen. Only their own data is ever returned. Logins
+	without an Employee, or with work tracking off, get {"tracking": False}
+	so the PWA can show a plain message instead of an error."""
+	employee = get_employee_for_user()
+	if not employee:
+		return {"tracking": False, "reason": "no_employee"}
+	if not is_tracking_enabled(employee):
+		return {"tracking": False, "reason": "disabled", "employee": employee}
 	days = min(max(cint(days) or 7, 1), 31)
 	now = now_datetime()
 	today_start = get_datetime(today())
@@ -1072,6 +1078,7 @@ def get_my_dashboard(days: int = 7):
 		"avg_working_min": round(working_total / len(done), 1) if done else 0,
 	}
 	return {
+		"tracking": True,
 		"employee": employee,
 		"days": days,
 		"today": {
