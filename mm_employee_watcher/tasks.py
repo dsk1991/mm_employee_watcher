@@ -413,3 +413,50 @@ def purge_old_records():
 		"status IN ('Completed', 'Cancelled') AND modified < %s",
 		(add_days(now, -60),),
 	)
+
+
+def nudge_idle_employees():
+	"""Every 5 minutes: remind an employee (not the supervisor) that they have
+	been IDLE too long. Sends a push if push notifications are set up; the
+	PWA also shows its own on-screen reminder while it is open. One reminder
+	per idle stretch every `idle_nudge_minutes`."""
+	minutes = frappe.db.get_single_value("MM Watcher Settings", "idle_nudge_minutes")
+	minutes = 15 if minutes is None else int(minutes)
+	if minutes <= 0:
+		return
+	now = now_datetime()
+	rows = frappe.get_all(
+		"Employee Current Status",
+		filters={"status": STATUS_IDLE},
+		fields=["employee", "status_since", "idle_since"],
+	)
+	for row in rows:
+		since = row.idle_since or row.status_since
+		if not since or _minutes_since(since, now) < minutes:
+			continue
+		if not is_tracking_enabled(row.employee):
+			continue
+		key = f"mm_idle_nudge:{row.employee}"
+		if frappe.cache.get_value(key):
+			continue
+		frappe.cache.set_value(key, 1, expires_in_sec=minutes * 60)
+		user = frappe.db.get_value("Employee", row.employee, "user_id")
+		if not user:
+			continue
+		_send_idle_push(user, _minutes_since(since, now))
+
+
+def _send_idle_push(user, idle_minutes):
+	try:
+		from modernmarwar.modern_marwar.utils import push as push_service
+
+		if not push_service.is_enabled():
+			return
+		push_service.send_to_user(
+			user,
+			_("Aap idle hain"),
+			_("Aap {0} minute se idle hain. Apna agla kaam shuru karein.").format(int(idle_minutes)),
+			data={"link": "my-work", "kind": "idle_nudge"},
+		)
+	except Exception:
+		frappe.log_error(title="MM Employee Watcher idle push failed", message=frappe.get_traceback())

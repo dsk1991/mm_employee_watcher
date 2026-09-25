@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.13.0 - 2026-09-25
+
+- **My Work dashboard API** `get_my_dashboard`: an employee's own status, assigned
+  work, today / 7 / 30-day numbers (tasks, working, paused, waiting, on-time %),
+  per-day and per-activity breakdown, recent work and plain-language suggestions.
+- **Idle reminder to the employee:** MM Watcher Settings > *Remind Employee After
+  Idle (minutes)* (default 15). `nudge_idle_employees` runs every 5 minutes and
+  sends a push (when push notifications are set up); the Staff PWA also shows its
+  own on-screen reminder.
+
+
 ## 0.12.0 - 2026-09-24
 
 - **Warehouse work queue (Picking first).** With *Enable WMS Auto Queue* on in

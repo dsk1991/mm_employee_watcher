@@ -58,3 +58,44 @@ def pick_next(items, employee_zones=None):
 		return (-(item.get("priority") or 0), -in_zone, item.get("creation"))
 
 	return sorted(items, key=rank)[0] if items else None
+
+
+def build_suggestions(stats):
+	"""Plain-language tips for a worker from their own numbers (no Frappe).
+	`stats` keys used (all optional): status, idle_minutes, assigned_count,
+	top_assigned, pool_count, today_sessions, today_working_min,
+	today_paused_min, period_sessions, on_time_pct, avg_working_min."""
+	tips = []
+	status = stats.get("status")
+	idle = stats.get("idle_minutes") or 0
+	assigned = stats.get("assigned_count") or 0
+	pool = stats.get("pool_count") or 0
+
+	if status == "IDLE":
+		if assigned:
+			top = stats.get("top_assigned") or "assigned kaam"
+			tips.append({"type": "warn", "text": f"Aap {int(idle)} min se idle hain. Aapke paas {assigned} kaam assigned hai - '{top}' se shuru karein."})
+		elif pool:
+			tips.append({"type": "warn", "text": f"Aap {int(idle)} min se idle hain. Pool mein {pool} task waiting hain - NEXT TASK dabayein."})
+		elif idle >= 15:
+			tips.append({"type": "info", "text": f"Aap {int(idle)} min se idle hain aur koi task waiting nahi hai. Supervisor se naya kaam maangein."})
+	elif assigned:
+		tips.append({"type": "info", "text": f"Is kaam ke baad {assigned} aur kaam aapke queue mein hain."})
+
+	paused = stats.get("today_paused_min") or 0
+	working = stats.get("today_working_min") or 0
+	total = paused + working
+	if total >= 60 and paused / total > 0.25:
+		tips.append({"type": "warn", "text": f"Aaj {int(100 * paused / total)}% samay pause/break/blocked mein gaya. Blocked reason clear karke kaam jaldi resume karein."})
+
+	on_time = stats.get("on_time_pct")
+	if on_time is not None and on_time < 70:
+		tips.append({"type": "warn", "text": f"Sirf {int(on_time)}% kaam target time ke andar hua. Start karte waqt zyada time (+15m) rakhein ya bade kaam ko todkar karein."})
+	elif on_time is not None and on_time >= 90 and (stats.get("period_sessions") or 0) >= 5:
+		tips.append({"type": "good", "text": f"Shabash! {int(on_time)}% kaam target time par hua."})
+
+	if (stats.get("today_sessions") or 0) == 0 and status != "IDLE" and working < 5:
+		tips.append({"type": "info", "text": "Aaj abhi tak koi kaam complete nahi hua. Chhota kaam pehle khatam karke rhythm banayein."})
+	if not tips:
+		tips.append({"type": "good", "text": "Sab theek chal raha hai. Kaam ke end par batana na bhoolein ki kya kiya."})
+	return tips

@@ -7,7 +7,7 @@ read/write exactly the same state. See docs/backend-architecture.md section 5.
 
 import frappe
 from frappe import _
-from frappe.utils import now_datetime, add_to_date, flt, cint, get_datetime, today
+from frappe.utils import now_datetime, add_to_date, flt, cint, get_datetime, getdate, time_diff_in_seconds, today
 
 from mm_employee_watcher import timing
 from mm_employee_watcher.utils import (
@@ -967,3 +967,121 @@ def record_document_activity(doc, method=None):
 			title="MM Employee Watcher document tracking failed",
 			message=frappe.get_traceback(),
 		)
+
+
+@frappe.whitelist()
+def get_my_dashboard(days: int = 7):
+	"""The logged-in employee's own work numbers, assigned work and tips for
+	the PWA "My Work" screen. Only their own data is ever returned."""
+	employee = _get_employee_for_user()
+	days = min(max(cint(days) or 7, 1), 31)
+	now = now_datetime()
+	today_start = get_datetime(today())
+	period_start = add_to_date(today_start, days=-(days - 1))
+
+	sessions = frappe.get_all(
+		"Employee Work Session",
+		filters={"employee": employee, "start_time": [">=", period_start]},
+		fields=[
+			"name", "work_activity", "status", "start_time", "actual_end_time", "target_end_time",
+			"working_seconds", "paused_seconds", "waiting_seconds", "completed_qty", "reference_name",
+		],
+		order_by="start_time desc",
+		limit=500,
+	)
+	done = [s for s in sessions if s.status == SESSION_COMPLETED]
+	today_done = [s for s in done if get_datetime(s.start_time) >= today_start]
+
+	def total(rows, key):
+		return sum(cint(r.get(key)) for r in rows)
+
+	timed = [s for s in done if s.actual_end_time and s.target_end_time]
+	on_time_pct = None
+	if len(timed) >= 3:
+		on_time = sum(1 for s in timed if get_datetime(s.actual_end_time) <= get_datetime(s.target_end_time))
+		on_time_pct = round(100.0 * on_time / len(timed), 1)
+
+	by_day = {}
+	for offset in range(days):
+		day = getdate(add_to_date(period_start, days=offset))
+		by_day[str(day)] = {"date": str(day), "sessions": 0, "working_min": 0}
+	for s in done:
+		key = str(getdate(s.start_time))
+		if key in by_day:
+			by_day[key]["sessions"] += 1
+			by_day[key]["working_min"] += round(cint(s.working_seconds) / 60)
+
+	by_activity = {}
+	for s in done:
+		row = by_activity.setdefault(s.work_activity, {"activity": s.work_activity, "sessions": 0, "working_min": 0, "waiting_min": 0})
+		row["sessions"] += 1
+		row["working_min"] += round(cint(s.working_seconds) / 60)
+		row["waiting_min"] += round(cint(s.waiting_seconds) / 60)
+	activities = sorted(by_activity.values(), key=lambda r: -r["working_min"])
+	for row in activities:
+		row["avg_min"] = round(row["working_min"] / row["sessions"], 1) if row["sessions"] else 0
+
+	status_row = frappe.db.get_value(
+		"Employee Current Status",
+		{"employee": employee},
+		["status", "status_since", "idle_since"],
+		as_dict=True,
+	) or {}
+	idle_minutes = 0
+	if status_row.get("status") == STATUS_IDLE:
+		since = status_row.get("idle_since") or status_row.get("status_since")
+		if since:
+			idle_minutes = max(0, int(time_diff_in_seconds(now, get_datetime(since)) // 60))
+
+	assigned = get_my_queue(employee)
+	pool_count = len(
+		frappe.get_all(
+			"Employee Work Queue",
+			filters={"status": "Pending", "employee": ["is", "not set"]},
+			pluck="name",
+			limit=200,
+		)
+	)
+
+	working_total = round(total(done, "working_seconds") / 60)
+	stats = {
+		"status": status_row.get("status"),
+		"idle_minutes": idle_minutes,
+		"assigned_count": len(assigned),
+		"top_assigned": assigned[0]["work_activity"] if assigned else None,
+		"pool_count": pool_count,
+		"today_sessions": len(today_done),
+		"today_working_min": round(total(today_done, "working_seconds") / 60),
+		"today_paused_min": round(total(today_done, "paused_seconds") / 60),
+		"period_sessions": len(done),
+		"on_time_pct": on_time_pct,
+		"avg_working_min": round(working_total / len(done), 1) if done else 0,
+	}
+	return {
+		"employee": employee,
+		"days": days,
+		"today": {
+			"sessions": stats["today_sessions"],
+			"working_min": stats["today_working_min"],
+			"paused_min": stats["today_paused_min"],
+		},
+		"period": {
+			"sessions": len(done),
+			"working_min": working_total,
+			"paused_min": round(total(done, "paused_seconds") / 60),
+			"avg_working_min": stats["avg_working_min"],
+			"avg_waiting_min": round(total(done, "waiting_seconds") / 60 / len(done), 1) if done else 0,
+			"on_time_pct": on_time_pct,
+		},
+		"by_day": list(by_day.values()),
+		"by_activity": activities[:8],
+		"assigned": assigned,
+		"pool_count": pool_count,
+		"idle_minutes": idle_minutes,
+		"status": status_row.get("status"),
+		"suggestions": timing.build_suggestions(stats),
+		"recent": [
+			{"activity": s.work_activity, "reference": s.reference_name, "end": s.actual_end_time, "working_min": round(cint(s.working_seconds) / 60)}
+			for s in done[:8]
+		],
+	}

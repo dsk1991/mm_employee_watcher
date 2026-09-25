@@ -11,6 +11,7 @@
   "idle_alert_minutes",
   "overdue_alert_minutes",
   "blocked_alert_minutes",
+  "idle_nudge_minutes",
   "section_break_recipients",
   "alert_recipients",
   "section_break_retention",
@@ -61,6 +62,13 @@
    "fieldname": "blocked_alert_minutes",
    "fieldtype": "Int",
    "label": "Blocked Alert After (minutes)"
+  },
+  {
+   "default": "15",
+   "description": "Remind the employee themselves (PWA notification, and push if set up) when they have been IDLE this long. 0 = off.",
+   "fieldname": "idle_nudge_minutes",
+   "fieldtype": "Int",
+   "label": "Remind Employee After Idle (minutes)"
   },
   {
    "fieldname": "section_break_recipients",

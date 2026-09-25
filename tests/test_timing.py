@@ -65,6 +65,31 @@ class PickNextTest(unittest.TestCase):
 		self.assertEqual(timing.pick_next(items)["name"], "old")
 
 
+class SuggestionsTest(unittest.TestCase):
+	def texts(self, stats):
+		return [t["text"] for t in timing.build_suggestions(stats)]
+
+	def test_idle_with_assigned_work_points_to_it(self):
+		tips = self.texts({"status": "IDLE", "idle_minutes": 20, "assigned_count": 2, "top_assigned": "Picking"})
+		self.assertIn("Picking", tips[0])
+		self.assertIn("20", tips[0])
+
+	def test_idle_with_pool_suggests_next_task(self):
+		tips = self.texts({"status": "IDLE", "idle_minutes": 5, "pool_count": 3})
+		self.assertIn("NEXT TASK", tips[0])
+
+	def test_high_pause_share_warns(self):
+		tips = self.texts({"status": "WORKING", "today_working_min": 60, "today_paused_min": 40, "today_sessions": 1})
+		self.assertTrue(any("pause" in t for t in tips))
+
+	def test_low_on_time_warns_and_high_praises(self):
+		self.assertTrue(any("target" in t for t in self.texts({"on_time_pct": 40, "today_sessions": 1})))
+		self.assertTrue(any("Shabash" in t for t in self.texts({"on_time_pct": 95, "period_sessions": 8, "today_sessions": 1})))
+
+	def test_always_returns_something(self):
+		self.assertTrue(timing.build_suggestions({}))
+
+
 class WmsWiringTest(unittest.TestCase):
 	def read(self, *parts):
 		return (ROOT / "mm_employee_watcher" / Path(*parts)).read_text(encoding="utf-8")
@@ -85,6 +110,11 @@ class WmsWiringTest(unittest.TestCase):
 	def test_patch_is_registered(self):
 		self.assertIn("v0_4_0_wms_activities", self.read("patches.txt"))
 		self.assertTrue((ROOT / "mm_employee_watcher" / "patches" / "v0_4_0_wms_activities.py").exists())
+
+	def test_dashboard_and_nudge_wiring(self):
+		self.assertIn("def get_my_dashboard", self.read("api.py"))
+		self.assertIn("def nudge_idle_employees", self.read("tasks.py"))
+		self.assertIn("nudge_idle_employees", self.read("hooks.py"))
 
 	def test_claim_api_exists(self):
 		api = self.read("api.py")

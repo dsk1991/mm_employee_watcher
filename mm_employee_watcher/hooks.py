@@ -82,6 +82,7 @@ scheduler_events = {
 		],
 		# every 5 minutes: mark employees with a stale heartbeat as OFFLINE
 		"*/5 * * * *": [
+			"mm_employee_watcher.tasks.nudge_idle_employees",
 			"mm_employee_watcher.tasks.check_offline_employees",
 		],
 		# hourly: build queue items from due Work Queue Schedules (once/day each)
