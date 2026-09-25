@@ -122,16 +122,18 @@ def _minutes(value):
 	return int(parts[0]) * 60 + int(parts[1])
 
 
-def in_shift_window(now, start, end, grace_minutes=0, weekly_off=()):
-	"""True when `now` (datetime) is inside the shift plus grace on each side.
+def in_shift_window(now, start, end, grace_minutes=0, weekly_off=(), grace_after=None):
+	"""True when `now` (datetime) is inside the shift plus grace before it
+	(`grace_minutes`) and after it (`grace_after`, default the same).
 	Handles night shifts (end before start); the weekly-off day is the day
 	the shift started on."""
 	names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 	off = {d.strip()[:3].title() for d in (weekly_off or ()) if d and d.strip()}
 	s, e, g = _minutes(start), _minutes(end), int(grace_minutes or 0)
+	ga = g if grace_after is None else int(grace_after or 0)
 	cur = now.hour * 60 + now.minute
 	lo = s - g
-	hi = e + g + (1440 if e <= s else 0)
+	hi = e + ga + (1440 if e <= s else 0)
 	for day_back in (0, 1):
 		a, b = lo - 1440 * day_back, hi - 1440 * day_back
 		if a <= cur <= b and names[(now.weekday() - day_back) % 7] not in off:

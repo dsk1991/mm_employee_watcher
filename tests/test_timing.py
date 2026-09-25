@@ -153,7 +153,7 @@ class WmsWiringTest(unittest.TestCase):
 		for name in ("def punch", "def get_punch_status", "def _attendance_summary"):
 			self.assertIn(name, api)
 		self.assertIn("complete_sections_on_submit", self.read("hooks.py"))
-		for doctype in ("work_shift", "employee_punch"):
+		for doctype in ("employee_punch",):
 			folder = ROOT / "mm_employee_watcher" / "mm_employee_watcher" / "doctype" / doctype
 			for ext in ("json", "py"):
 				self.assertTrue((folder / f"{doctype}.{ext}").exists())

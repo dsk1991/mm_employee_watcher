@@ -6,7 +6,7 @@ transitions and realtime notifications.
 """
 
 import frappe
-from frappe.utils import now_datetime, add_to_date, cint, get_datetime, time_diff_in_seconds
+from frappe.utils import now_datetime, add_to_date, cint, get_datetime, getdate, time_diff_in_seconds
 
 from mm_employee_watcher.state_machine import (
 	OPEN_SESSION_STATUSES,
@@ -281,16 +281,51 @@ def get_watcher_settings():
 PUNCH_STALE_HOURS = 18  # a Punch In older than this is treated as a forgotten Punch Out
 
 
-def get_work_shift(employee: str):
-	"""The employee's Work Shift row (start/end/grace/weekly off) or None."""
-	if not frappe.db.has_column("Employee", "mm_work_shift"):
+def get_work_shift(employee: str, at=None):
+	"""The employee's HRMS Shift Type for the day: an active Shift Assignment
+	first, else the Employee's default shift. None when HRMS shifts are not in
+	use for them. Returned as a dict with name, start_time, end_time,
+	begin_check_in_before_shift_start_time, allow_check_out_after_shift_end_time
+	and holiday_list."""
+	if not frappe.db.exists("DocType", "Shift Type"):
 		return None
-	name = frappe.db.get_value("Employee", employee, "mm_work_shift")
+	day = getdate(at) if at else getdate()
+	name = None
+	if frappe.db.exists("DocType", "Shift Assignment"):
+		rows = frappe.db.sql(
+			"""SELECT shift_type FROM `tabShift Assignment`
+			WHERE employee=%s AND docstatus=1 AND status='Active' AND start_date<=%s
+			AND (end_date IS NULL OR end_date>=%s) ORDER BY start_date DESC LIMIT 1""",
+			(employee, day, day),
+		)
+		name = rows[0][0] if rows else None
+	if not name and frappe.db.has_column("Employee", "default_shift"):
+		name = frappe.db.get_value("Employee", employee, "default_shift")
 	if not name:
 		return None
 	return frappe.db.get_value(
-		"Work Shift", name, ["name", "start_time", "end_time", "grace_minutes", "weekly_off"], as_dict=True
+		"Shift Type",
+		name,
+		[
+			"name",
+			"start_time",
+			"end_time",
+			"begin_check_in_before_shift_start_time",
+			"allow_check_out_after_shift_end_time",
+			"holiday_list",
+		],
+		as_dict=True,
 	)
+
+
+def is_holiday(employee: str, shift, day) -> bool:
+	"""True when `day` is in the employee's (or the shift's) Holiday List."""
+	holiday_list = (shift or {}).get("holiday_list") if shift else None
+	if not holiday_list and frappe.db.has_column("Employee", "holiday_list"):
+		holiday_list = frappe.db.get_value("Employee", employee, "holiday_list")
+	if not holiday_list or not frappe.db.exists("DocType", "Holiday"):
+		return False
+	return bool(frappe.db.exists("Holiday", {"parent": holiday_list, "holiday_date": getdate(day)}))
 
 
 def last_punch(employee: str):
@@ -307,13 +342,14 @@ def last_punch(employee: str):
 def duty_state(employee: str, at=None) -> dict:
 	"""{"on_duty", "reason", "shift", "punched_in", "last_punch"}.
 
-	Tracking follows the employee's Work Shift (plus grace, minus weekly off).
-	If "Require Punch In for Tracking" is on, they must also be punched in. A
-	punched-in employee stays tracked outside the shift window (overtime)."""
+	Tracking follows the employee's HRMS shift (plus its check-in / check-out
+	allowance) and skips holidays. If "Require Punch In for Tracking" is on they
+	must also be punched in. A punched-in employee stays tracked outside the
+	shift window (overtime). No shift at all = always on duty."""
 	from mm_employee_watcher import timing
 
 	at = get_datetime(at) if at else now_datetime()
-	shift = get_work_shift(employee)
+	shift = get_work_shift(employee, at)
 	punch = last_punch(employee)
 	punched_in = bool(punch and punch.log_type == "IN")
 	if punched_in and time_diff_in_seconds(at, get_datetime(punch.punch_time)) > PUNCH_STALE_HOURS * 3600:
@@ -326,7 +362,15 @@ def duty_state(employee: str, at=None) -> dict:
 	if cint(frappe.db.get_single_value("MM Watcher Settings", "require_punch_in")) and not punched_in:
 		return {**info, "on_duty": False, "reason": "not_punched_in"}
 	if shift and not punched_in:
-		off = [d for d in (shift.weekly_off or "").split(",")]
-		if not timing.in_shift_window(at, shift.start_time, shift.end_time, shift.grace_minutes, off):
+		if is_holiday(employee, shift, at):
+			return {**info, "on_duty": False, "reason": "holiday"}
+		if not timing.in_shift_window(
+			at,
+			shift.start_time,
+			shift.end_time,
+			shift.begin_check_in_before_shift_start_time or 0,
+			(),
+			shift.allow_check_out_after_shift_end_time or 0,
+		):
 			return {**info, "on_duty": False, "reason": "off_shift"}
 	return {**info, "on_duty": True, "reason": None}

@@ -2,13 +2,13 @@
 
 ## 0.14.0 - 2026-09-25
 
-- **Shifts:** new *Work Shift* (start, end, grace, weekly off) and an Employee field
-  *Work Shift*. Tracking (Work Now popup, idle reminders, supervisor alerts) applies only
-  inside the employee's shift.
-- **Attendance:** *Punch In / Punch Out* from the PWA with the phone's location, stored in
-  *Employee Punch* (and mirrored to HRMS *Employee Checkin* when HRMS is installed).
-  Optional office geofence, "punch needs location" and "require punch in for tracking" in
-  MM Watcher Settings.
+- **Shifts (from HRMS):** the employee's HRMS Shift Assignment (else default shift) decides when
+  they are tracked: Work Now popup, idle reminders and supervisor alerts apply only inside the
+  shift (plus its check-in / check-out allowance) and not on holidays.
+- **Attendance:** *Punch In / Punch Out* from the PWA with the phone's location. Each punch is
+  stored in *Employee Punch* (distance from the office, inside/outside) and creates an HRMS
+  *Employee Checkin*, so HRMS auto-attendance marks Attendance. Optional office geofence,
+  "punch needs location" and "require punch in for tracking" in MM Watcher Settings.
 - **Work sections:** starting a Pick List / Packing / Putaway / Receiving document starts a
   section (timer) automatically; starting another parks the running one and coming back
   resumes it; a document being worked by someone else refuses the second person with a

@@ -30,7 +30,6 @@ TRACKED_DOCTYPES = {
 	"MM Watcher Alert Recipient": "mm_watcher_alert_recipient",
 	"Work Queue Schedule": "work_queue_schedule",
 	"Work Queue Schedule Assignee": "work_queue_schedule_assignee",
-	"Work Shift": "work_shift",
 	"Employee Punch": "employee_punch",
 }
 
@@ -94,7 +93,6 @@ def repair_doctype_modules():
 def setup_required_records():
 	create_user_tracking_field()
 	create_employee_zones_field()
-	create_employee_shift_field()
 	create_app_roles()
 	create_default_activities()
 
@@ -184,21 +182,3 @@ def run_if_not_already_installed():
 	by hand: `bench --site your-site execute
 	mm_employee_watcher.install.run_if_not_already_installed`"""
 	setup_required_records()
-
-
-def create_employee_shift_field():
-	"""Which Work Shift an employee is tracked in (Custom Field on Employee)."""
-	if frappe.db.exists("Custom Field", {"dt": "Employee", "fieldname": "mm_work_shift"}):
-		return
-	frappe.get_doc(
-		{
-			"doctype": "Custom Field",
-			"dt": "Employee",
-			"fieldname": "mm_work_shift",
-			"label": "Work Shift (MM Employee Watcher)",
-			"fieldtype": "Link",
-			"options": "Work Shift",
-			"insert_after": "user_id",
-			"description": "Work tracking (Work Now popup, idle reminders, alerts) applies only inside this shift. Empty = always tracked.",
-		}
-	).insert(ignore_permissions=True)

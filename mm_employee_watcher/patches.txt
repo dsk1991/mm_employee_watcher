@@ -4,3 +4,4 @@
 mm_employee_watcher.patches.v0_3_0_remove_sections
 mm_employee_watcher.patches.v0_4_0_wms_activities
 mm_employee_watcher.patches.v0_4_1_picking_not_zone_wise
+mm_employee_watcher.patches.v0_5_0_use_hrms_shifts

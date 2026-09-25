@@ -1157,6 +1157,7 @@ def _attendance_summary(employee):
 	)
 	shift = get_work_shift(employee)
 	return {
+		"hrms_attendance": _hrms_attendance_today(employee),
 		"punched_in": duty["punched_in"],
 		"on_duty": duty["on_duty"],
 		"reason": duty["reason"],
@@ -1165,7 +1166,6 @@ def _attendance_summary(employee):
 				"name": shift.name,
 				"start": str(shift.start_time),
 				"end": str(shift.end_time),
-				"weekly_off": shift.weekly_off or "",
 			}
 			if shift
 			else None
@@ -1258,7 +1258,7 @@ def punch(
 		}
 	).insert(ignore_permissions=True)
 
-	_mirror_to_hrms_checkin(doc)
+	checkin = _mirror_to_hrms_checkin(doc)
 	if is_tracking_enabled(employee):
 		if log_type == "IN":
 			status_doc = get_or_create_status(employee)
@@ -1269,6 +1269,7 @@ def punch(
 	return {
 		"ok": True,
 		"log_type": log_type,
+		"hrms_checkin": checkin,
 		"inside": bool(inside) if cfg["geofence"] else None,
 		"distance_m": round(distance) if distance is not None else None,
 		**_attendance_summary(employee),
@@ -1279,7 +1280,7 @@ def _mirror_to_hrms_checkin(punch_doc):
 	"""If HRMS is installed, also create its Employee Checkin so its attendance
 	tools see the punch. Best effort: never fails the punch."""
 	if not frappe.db.exists("DocType", "Employee Checkin"):
-		return
+		return None
 	try:
 		values = {
 			"doctype": "Employee Checkin",
@@ -1293,5 +1294,17 @@ def _mirror_to_hrms_checkin(punch_doc):
 			values["latitude"] = punch_doc.latitude
 			values["longitude"] = punch_doc.longitude
 		frappe.get_doc(values).insert(ignore_permissions=True)
+		return "created"
 	except Exception:
 		frappe.log_error(title="MM Employee Watcher HRMS checkin mirror failed", message=frappe.get_traceback())
+		return "failed"
+
+
+def _hrms_attendance_today(employee):
+	"""Today's HRMS Attendance status (Present / Absent / Half Day ...) if one
+	exists yet; HRMS creates it from the Employee Checkin log on its own schedule."""
+	if not frappe.db.exists("DocType", "Attendance"):
+		return None
+	return frappe.db.get_value(
+		"Attendance", {"employee": employee, "attendance_date": today(), "docstatus": 1}, "status"
+	)
