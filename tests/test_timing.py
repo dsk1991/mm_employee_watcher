@@ -166,3 +166,37 @@ class WmsWiringTest(unittest.TestCase):
 
 if __name__ == "__main__":
 	unittest.main()
+
+
+class ShiftEndTest(unittest.TestCase):
+	def test_day_shift_punch_in_ends_same_day(self):
+		end = timing.shift_end_for("09:00:00", "18:00:00", datetime(2026, 9, 24, 9, 12))
+		self.assertEqual(end, datetime(2026, 9, 24, 18, 0))
+
+	def test_early_punch_before_shift_start(self):
+		end = timing.shift_end_for("09:00:00", "18:00:00", datetime(2026, 9, 24, 8, 30))
+		self.assertEqual(end, datetime(2026, 9, 24, 18, 0))
+
+	def test_hrms_time_without_leading_zero(self):
+		end = timing.shift_end_for(timedelta(hours=9), timedelta(hours=18), datetime(2026, 9, 24, 10, 0))
+		self.assertEqual(end, datetime(2026, 9, 24, 18, 0))
+
+	def test_night_shift_evening_punch_ends_next_morning(self):
+		end = timing.shift_end_for("21:00:00", "06:00:00", datetime(2026, 9, 24, 20, 55))
+		self.assertEqual(end, datetime(2026, 9, 25, 6, 0))
+
+	def test_night_shift_after_midnight_punch_belongs_to_last_night(self):
+		end = timing.shift_end_for("21:00:00", "06:00:00", datetime(2026, 9, 25, 1, 30))
+		self.assertEqual(end, datetime(2026, 9, 25, 6, 0))
+
+	def test_overtime_punch_after_shift_end_returns_none(self):
+		self.assertIsNone(timing.shift_end_for("09:00:00", "18:00:00", datetime(2026, 9, 24, 19, 30), 60))
+
+	def test_punch_inside_checkout_allowance_still_same_shift(self):
+		end = timing.shift_end_for("09:00:00", "18:00:00", datetime(2026, 9, 24, 18, 40), 60)
+		self.assertEqual(end, datetime(2026, 9, 24, 18, 0))
+
+	def test_last_shift_end_today_or_yesterday(self):
+		self.assertEqual(timing.last_shift_end("18:00:00", datetime(2026, 9, 24, 19, 0)), datetime(2026, 9, 24, 18, 0))
+		self.assertEqual(timing.last_shift_end("18:00:00", datetime(2026, 9, 24, 8, 0)), datetime(2026, 9, 23, 18, 0))
+		self.assertEqual(timing.last_shift_end("06:00:00", datetime(2026, 9, 25, 7, 0)), datetime(2026, 9, 25, 6, 0))

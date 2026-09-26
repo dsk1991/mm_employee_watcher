@@ -7,7 +7,7 @@ the task sat in the queue before anyone started it.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, time, timedelta
 
 PAUSE_EVENTS = {"Pause", "Blocked", "Break Start"}
 RESUME_EVENTS = {"Resume", "Unblocked", "Break End"}
@@ -139,3 +139,25 @@ def in_shift_window(now, start, end, grace_minutes=0, weekly_off=(), grace_after
 		if a <= cur <= b and names[(now.weekday() - day_back) % 7] not in off:
 			return True
 	return False
+
+
+def shift_end_for(start, end, moment: datetime, after_minutes: int = 0) -> datetime | None:
+	"""End of the shift occurrence that `moment` (e.g. a Punch In) belongs to.
+	Night shifts (end before start) end the next day; an early-morning moment
+	before that end belongs to last night's shift. Returns None when `moment`
+	is already past that end + `after_minutes` (an overtime punch)."""
+	s, e, after = _minutes(start), _minutes(end), int(after_minutes or 0)
+	length = (e - s) % 1440 or 1440
+	start_dt = datetime.combine(moment.date(), time.min) + timedelta(minutes=s)
+	if e <= s and moment.hour * 60 + moment.minute <= e + after:
+		start_dt -= timedelta(days=1)
+	end_dt = start_dt + timedelta(minutes=length)
+	if moment > end_dt + timedelta(minutes=after):
+		return None
+	return end_dt
+
+
+def last_shift_end(end, now: datetime) -> datetime:
+	"""Most recent shift end time at or before `now`."""
+	end_dt = datetime.combine(now.date(), time.min) + timedelta(minutes=_minutes(end))
+	return end_dt if end_dt <= now else end_dt - timedelta(days=1)

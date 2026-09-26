@@ -72,7 +72,7 @@
    "fieldname": "source",
    "fieldtype": "Select",
    "label": "Source",
-   "options": "PWA\nDesk\nOther"
+   "options": "PWA\nDesk\nAuto\nOther"
   },
   {
    "fieldname": "device",
@@ -126,7 +126,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-09-25 00:00:00.000000",
+ "modified": "2026-09-26 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "MM Employee Watcher",
  "name": "Employee Punch",

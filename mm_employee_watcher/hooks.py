@@ -92,6 +92,8 @@ scheduler_events = {
 		"*/5 * * * *": [
 			"mm_employee_watcher.tasks.nudge_idle_employees",
 			"mm_employee_watcher.tasks.check_offline_employees",
+			# shift close: auto Punch Out + pause sections; shift start: resume them
+			"mm_employee_watcher.shift_guard.enforce_shifts",
 		],
 		# hourly: build queue items from due Work Queue Schedules (once/day each)
 		"0 * * * *": [

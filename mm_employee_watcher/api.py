@@ -1151,7 +1151,7 @@ def _attendance_summary(employee):
 	punches = frappe.get_all(
 		"Employee Punch",
 		filters={"employee": employee, "punch_time": [">=", since]},
-		fields=["log_type", "punch_time", "within_geofence", "distance_m"],
+		fields=["log_type", "punch_time", "within_geofence", "distance_m", "source"],
 		order_by="punch_time asc",
 		limit=20,
 	)
@@ -1178,6 +1178,7 @@ def _attendance_summary(employee):
 				"time": str(p.punch_time),
 				"inside": cint(p.within_geofence),
 				"distance_m": round(flt(p.distance_m)) if p.distance_m else None,
+				"auto": p.source == "Auto",
 			}
 			for p in punches
 		],
@@ -1264,6 +1265,13 @@ def punch(
 			status_doc = get_or_create_status(employee)
 			if status_doc.status in ("OFFLINE", STATUS_OFF_DUTY):
 				set_status(employee, STATUS_IDLE, None)
+			try:
+				from mm_employee_watcher.shift_guard import resume_for_shift_start
+
+				# the section parked at last shift close starts again right away
+				resume_for_shift_start(employee)
+			except Exception:
+				frappe.log_error(title="MM Employee Watcher resume on punch failed", message=frappe.get_traceback())
 		else:
 			set_status(employee, STATUS_OFF_DUTY, None)
 	return {
