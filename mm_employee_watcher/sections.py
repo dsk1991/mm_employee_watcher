@@ -7,9 +7,9 @@ Employee Work Session referencing that document) is running for them:
 * Only one section runs per employee. Starting a different document parks the
   running one (status Paused, no longer primary) - its timer stops - and
   coming back to the parked document resumes the same section.
-* A document is worked by one person at a time. If another employee has an
-  open section on it, the second person is told who is on it and is not
-  allowed to start.
+* A document can be shared: when a second employee opens a document someone
+  else started (e.g. half packed, then left paused), they get their own
+  section on it and both timers count. Nobody is locked out.
 * Finishing the document (submit) completes its sections.
 
 Nothing is stored on the Pick List / Delivery Note / Stock Entry itself.
@@ -142,23 +142,17 @@ def blocked_message(other, reference_name):
 def enter_section(work_activity, reference_doctype, reference_name):
 	"""Start, resume or keep running this employee's section on a document.
 
-	Returns {"action": "started" | "resumed" | "running"} on success,
-	{"blocked": True, "message", "by", "by_name"} when someone else is on the
-	document, or {"tracking": False} / {"skipped": True} when tracking does not
-	apply (tracking off, or outside their shift)."""
+	Returns {"action": "started" | "resumed" | "running"} on success, or
+	{"tracking": False} / {"skipped": True} when tracking does not apply
+	(tracking off, or outside their shift). Another employee's open section on
+	the same document does not block (see module docstring); it is reported as
+	"also_by" for information only."""
 	employee = get_employee_for_user()
 	if not employee or not is_tracking_enabled(employee):
 		return {"tracking": False}
 
 	other = find_other_worker(reference_doctype, reference_name, employee)
-	if other:
-		return {
-			"tracking": True,
-			"blocked": True,
-			"by": other.employee,
-			"by_name": other.employee_name or other.employee,
-			"message": blocked_message(other, reference_name),
-		}
+	also_by = (other.employee_name or other.employee) if other else None
 
 	duty = duty_state(employee)
 	if not duty["on_duty"]:
@@ -168,11 +162,11 @@ def enter_section(work_activity, reference_doctype, reference_name):
 	mine = _my_section(employee, reference_doctype, reference_name)
 	if mine:
 		if current and current.name == mine.name:
-			return {"tracking": True, "action": "running", "session": mine.name}
+			return {"tracking": True, "action": "running", "session": mine.name, "also_by": also_by}
 		if current:
 			park_session(current, _("Switched to {0}").format(reference_name))
 		unpark_session(mine)
-		return {"tracking": True, "action": "resumed", "session": mine.name}
+		return {"tracking": True, "action": "resumed", "session": mine.name, "also_by": also_by}
 
 	if current:
 		park_session(current, _("Switched to {0}").format(reference_name))
@@ -185,7 +179,7 @@ def enter_section(work_activity, reference_doctype, reference_name):
 		description=_("{0} {1}").format(reference_doctype, reference_name),
 	)
 	_link_queue_item(session, work_activity, reference_doctype, reference_name)
-	return {"tracking": True, "action": "started", "session": session.name}
+	return {"tracking": True, "action": "started", "session": session.name, "also_by": also_by}
 
 
 def complete_reference_sessions(reference_doctype, reference_name, remarks=None):
@@ -220,10 +214,6 @@ def resume_parked(work_session):
 		frappe.throw(_("This work section belongs to another employee"), frappe.PermissionError)
 	if session.status not in OPEN_SESSION_STATUSES:
 		frappe.throw(_("This work section is already finished"))
-	if session.reference_doctype:
-		other = find_other_worker(session.reference_doctype, session.reference_name, employee)
-		if other:
-			frappe.throw(blocked_message(other, session.reference_name))
 	current = get_active_session(employee)
 	if current and current.name != session.name:
 		park_session(current, _("Switched to {0}").format(session.reference_name or session.work_activity))

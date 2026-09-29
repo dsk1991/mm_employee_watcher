@@ -152,9 +152,7 @@ def resume_for_shift_start(employee, now=None):
 	if shift and not duty["punched_in"] and not timing.in_shift_window(now, shift.start_time, shift.end_time, 0, (), 0):
 		return None
 	session = _auto_parked_section(employee, now)
-	if not session or session.status != SESSION_PAUSED or (
-		session.reference_doctype and sections.find_other_worker(session.reference_doctype, session.reference_name, employee)
-	):
+	if not session or session.status != SESSION_PAUSED:
 		# Nothing to resume: leave OFF DUTY so the next app heartbeat marks them IDLE.
 		if shift and get_or_create_status(employee).status == STATUS_OFF_DUTY:
 			set_status(employee, STATUS_OFFLINE, None)
