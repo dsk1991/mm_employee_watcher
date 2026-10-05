@@ -9,6 +9,12 @@ from mm_employee_watcher.state_machine import OPEN_SESSION_STATUSES, ensure_tran
 
 class EmployeeWorkSession(Document):
 	def validate(self):
+		# A section stays open while its document may be deleted or renamed later (a Pick List
+		# made again, a draft thrown away). Pausing, resuming or completing such a session must
+		# not fail on the dead link ("Could not find Reference Name"): only a NEW session has to
+		# point at a document that exists.
+		if not self.is_new():
+			self.flags.ignore_links = True
 		self.validate_transition()
 		self.validate_values()
 		self.enforce_single_primary_session()

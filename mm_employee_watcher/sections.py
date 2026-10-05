@@ -196,13 +196,19 @@ def complete_reference_sessions(reference_doctype, reference_name, remarks=None)
 
 def parked_sessions(employee):
 	"""Sections the employee left half-done (they can resume them)."""
-	return frappe.get_all(
+	rows = frappe.get_all(
 		"Employee Work Session",
 		filters={"employee": employee, "status": SESSION_PAUSED, "is_primary": 0},
 		fields=["name", "work_activity", "reference_doctype", "reference_name", "start_time"],
 		order_by="modified desc",
 		limit=20,
 	)
+	# a section on a document that was deleted since cannot be resumed
+	return [
+		row for row in rows
+		if not (row.reference_doctype and row.reference_name)
+		or frappe.db.exists(row.reference_doctype, row.reference_name)
+	]
 
 
 @frappe.whitelist(methods=["POST"])

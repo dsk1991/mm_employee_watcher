@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Fix:** switching to a new WMS section failed with "Could not find Reference Name" when the employee's
+  open section pointed at a document that had been deleted since (for example a Pick List). Pausing,
+  resuming and completing an existing work session no longer fails on a dead link, and the resume
+  list hides sections whose document is gone.
+
 ## 0.14.0 - 2026-09-25
 
 - **Shifts (from HRMS):** the employee's HRMS Shift Assignment (else default shift) decides when

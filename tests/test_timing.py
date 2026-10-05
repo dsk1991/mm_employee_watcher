@@ -147,6 +147,14 @@ class WmsWiringTest(unittest.TestCase):
 		self.assertIn("def nudge_idle_employees", self.read("tasks.py"))
 		self.assertIn("nudge_idle_employees", self.read("hooks.py"))
 
+	def test_open_section_survives_a_deleted_reference_document(self):
+		# switching away from a section whose Pick List was deleted raised
+		# "Could not find Reference Name" and the new section never started
+		session = self.read("mm_employee_watcher/doctype/employee_work_session/employee_work_session.py")
+		self.assertIn("self.flags.ignore_links = True", session)
+		self.assertIn("if not self.is_new():", session)
+		self.assertIn("frappe.db.exists(row.reference_doctype, row.reference_name)", self.read("sections.py"))
+
 	def test_sections_attendance_wiring(self):
 		self.assertTrue((ROOT / "mm_employee_watcher" / "sections.py").exists())
 		api = self.read("api.py")
